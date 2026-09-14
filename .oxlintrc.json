@@ -1,0 +1,28 @@
+{
+  "$schema": "./node_modules/oxlint/configuration_schema.json",
+  "plugins": ["typescript", "unicorn", "oxc", "vitest"],
+  "categories": {
+    "correctness": "error",
+    "suspicious": "warn",
+    "perf": "warn"
+  },
+  "rules": {
+    // Our loops drive a single physical bot / a single ongoing conversation turn-by-turn —
+    // each iteration depends on the previous one's outcome (moved position, placed block,
+    // prior model turn), so parallelizing with Promise.all would be a correctness bug, not
+    // an optimization. See skills/building.ts, skills/inventory.ts, llm/decisionLoop.ts.
+    "eslint/no-await-in-loop": "off"
+  },
+  "overrides": [
+    {
+      "files": ["tests/**"],
+      "rules": {
+        "vitest/expect-expect": "warn"
+      }
+    }
+  ],
+  "env": {
+    "builtin": true
+  },
+  "ignorePatterns": ["dist", "node_modules", "data", ".minecraft-auth"]
+}

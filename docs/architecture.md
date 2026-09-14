@@ -4,7 +4,7 @@
 
 1. **Minecraft Realm** — the existing Java Edition realm, unmodified. No plugins or mods needed server-side.
 2. **Bot account** — a second Microsoft/Minecraft account, invited to the realm like any other player. Mineflayer authenticates as this account.
-3. **Mineflayer client** — a Node.js process that logs in via Microsoft auth and speaks the Minecraft protocol directly. To the server it looks like a normal player.
+3. **Mineflayer client** — a [Bun](https://bun.sh) process that logs in via Microsoft auth and speaks the Minecraft protocol directly. To the server it looks like a normal player.
 4. **Skills library** — functions built on Mineflayer plugins (`mineflayer-pathfinder`, `mineflayer-collectblock`, `mineflayer-pvp`, etc.): `goToPlayer()`, `collectBlock()`, `craftItem()`, `attackNearest()`, and so on.
 5. **LLM brain** — on each chat command or decision tick, packages up context (message, inventory, nearby blocks/entities, current goal) and sends it to the configured model, which returns a skill call or short generated snippet to execute. See [model-options.md](model-options.md) for model selection.
 6. **Memory/state** — local JSON files holding conversation history, current goal/plan, and anything the bot has learned (e.g. chest locations), giving it continuity across turns.
@@ -54,9 +54,96 @@ sequenceDiagram
     A-->>U: chat reply ("Got 10 oak logs.")
 ```
 
+## Implementation module map
+
+The diagrams above describe the design; this reflects the actual `src/` layout it was built into.
+Arrows show the real import/call direction between modules, not just conceptual data flow.
+
+```mermaid
+flowchart TB
+    Index["index.ts<br/>(entry point)"]
+
+    subgraph Conn["mineflayer/"]
+        Client["client.ts<br/>createBot()"]
+        ConnTarget["connectionTarget.ts<br/>direct vs realm options"]
+        Plugins["plugins.ts<br/>pathfinder, collectblock, pvp, tool, armor-manager"]
+        Reconnect["reconnect.ts<br/>ReconnectSupervisor"]
+    end
+
+    subgraph ChatMod["chat/"]
+        Router["router.ts<br/>ChatRouter"]
+        Builtin["builtinCommands.ts<br/>stop / status / help"]
+        Format["format.ts<br/>chat line chunking"]
+    end
+
+    subgraph LLMMod["llm/"]
+        Loop["decisionLoop.ts<br/>runDecisionTick()"]
+        Ctx["contextBuilder.ts"]
+        ToolSchema["toolSchema.ts"]
+        Repair["repair.ts"]
+        ModelRouter["modelRouter.ts"]
+        Factory["providers/factory.ts"]
+        Anthropic["providers/anthropic.ts"]
+        OpenAI["providers/openai.ts"]
+    end
+
+    subgraph SkillsMod["skills/"]
+        Registry["registry.ts<br/>SkillRegistry"]
+        SkillFiles["movement / gathering / combat /<br/>crafting / building / inventory"]
+    end
+
+    Memory["memory/store.ts<br/>MemoryStore (debounced, atomic JSON)"]
+    Config["config/env.ts<br/>zod-validated AppConfig"]
+
+    Index --> Config
+    Index --> Client
+    Index --> Reconnect
+    Index --> Registry
+    Index --> Factory
+    Index --> Memory
+
+    Client --> ConnTarget
+    Client --> Plugins
+    Reconnect -->|"onBot(bot)"| Router
+    Reconnect -->|"onDisconnect"| Memory
+
+    Router --> Builtin
+    Router --> Format
+    Router --> Loop
+    Router --> Memory
+
+    Loop --> Ctx
+    Loop --> ToolSchema
+    Loop --> Repair
+    Loop --> ModelRouter
+    Loop -->|"skill.run(ctx, args)"| Registry
+    Ctx --> Memory
+    ToolSchema --> Registry
+
+    Factory --> Anthropic
+    Factory --> OpenAI
+    Loop -->|"provider.createTurn()"| Factory
+
+    SkillFiles --> Registry
+```
+
+Key boundaries worth calling out:
+
+- **The multi-turn loop lives once, in `decisionLoop.ts`.** Both provider adapters
+  (`providers/anthropic.ts`, `providers/openai.ts`) implement only a single stateless
+  `createTurn()` translating to/from a normalized shape — adding a new provider (e.g. Groq) is one
+  new adapter file plus one line in `factory.ts`, not a second copy of the loop/repair/escalation
+  logic.
+- **Skills never talk to the LLM layer directly.** `toolSchema.ts` is the only module that converts
+  a `SkillRegistry` into provider tool definitions; skills themselves just implement
+  `run(ctx, args): Promise<SkillResult>`.
+- **`ReconnectSupervisor` owns the bot lifecycle, not `ChatRouter`.** Each reconnect creates a new
+  `Bot` and a new `ChatRouter` bound to it — state that must survive a reconnect (goals, task
+  queue, known locations) lives in `MemoryStore`, not on the router or the bot object.
+
 ## Practical caveats
 
 - **Second account required** — the bot needs its own Microsoft/Minecraft Java account invited to the realm; it can't share your account.
-- **Needs to stay running** — the Node.js process (and a host machine) must be online whenever the bot should be present.
+- **Needs to stay running** — the Bun process (and a host machine) must be online whenever the bot should be present.
 - **API costs** — each bot decision is an LLM call; cost scales with how chatty/active the bot is. See [model-options.md](model-options.md) for cheaper alternatives to frontier models.
 - **Java Edition only** — this stack depends on Mineflayer's protocol support, which doesn't exist for Bedrock Realms.

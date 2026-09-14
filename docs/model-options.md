@@ -6,16 +6,16 @@ Pricing shifts quickly — verify current rates before committing budget.
 
 ## Comparison
 
-| Model | Cost tier | Approx. price ($/1M in / out) | Tool-calling reliability | Latency notes |
-|---|---|---|---|---|
-| **Claude Haiku 4.5** | Cheap | $1.00 / $5.00 | Strong — same tool-use API and `strict: true` schema validation as Sonnet/Opus | Fast, sub-second for short contexts |
-| **GPT-4.1-mini** | Very cheap | $0.40 / $1.60 (batch: $0.20/$0.80) | Strong, mature OpenAI function-calling | Fast |
-| **GPT-5-mini** | Very cheap | $0.25 / $2.00 | Strong, native structured outputs | Fast |
-| **Gemini 3.1 Flash-Lite** | Very cheap | $0.25 / $1.50 | Good; slightly less strict JSON adherence than OpenAI/Anthropic | Very fast |
-| **Gemini 3.8 Flash** | Cheap | $0.75 / $3.75 (intro) | Good, improved over 2.5 line | Fast |
-| **DeepSeek V3(.2)** | Very cheap | ~$0.21–0.27 / $0.31–1.10 | Tool calling supported; less proven at strict schema adherence | Moderate, host-dependent |
-| **Groq-hosted Llama 3.3 70B** | Very cheap | $0.59 / $0.79 | Supported; open-weight model, more prone to malformed args than frontier-lab small models | Extremely low — ~0.9s TTFT, ~300 tok/s |
-| **Local (Ollama, Llama 3.1/3.3, Qwen2.5)** | Free (marginal) | $0 + hardware/electricity | Weakest of this list — needs prompt tuning and retry/validation logic | Depends entirely on local GPU |
+| Model                                      | Cost tier       | Approx. price ($/1M in / out)      | Tool-calling reliability                                                                  | Latency notes                          |
+| ------------------------------------------ | --------------- | ---------------------------------- | ----------------------------------------------------------------------------------------- | -------------------------------------- |
+| **Claude Haiku 4.5**                       | Cheap           | $1.00 / $5.00                      | Strong — same tool-use API and `strict: true` schema validation as Sonnet/Opus            | Fast, sub-second for short contexts    |
+| **GPT-4.1-mini**                           | Very cheap      | $0.40 / $1.60 (batch: $0.20/$0.80) | Strong, mature OpenAI function-calling                                                    | Fast                                   |
+| **GPT-5-mini**                             | Very cheap      | $0.25 / $2.00                      | Strong, native structured outputs                                                         | Fast                                   |
+| **Gemini 3.1 Flash-Lite**                  | Very cheap      | $0.25 / $1.50                      | Good; slightly less strict JSON adherence than OpenAI/Anthropic                           | Very fast                              |
+| **Gemini 3.8 Flash**                       | Cheap           | $0.75 / $3.75 (intro)              | Good, improved over 2.5 line                                                              | Fast                                   |
+| **DeepSeek V3(.2)**                        | Very cheap      | ~$0.21–0.27 / $0.31–1.10           | Tool calling supported; less proven at strict schema adherence                            | Moderate, host-dependent               |
+| **Groq-hosted Llama 3.3 70B**              | Very cheap      | $0.59 / $0.79                      | Supported; open-weight model, more prone to malformed args than frontier-lab small models | Extremely low — ~0.9s TTFT, ~300 tok/s |
+| **Local (Ollama, Llama 3.1/3.3, Qwen2.5)** | Free (marginal) | $0 + hardware/electricity          | Weakest of this list — needs prompt tuning and retry/validation logic                     | Depends entirely on local GPU          |
 
 Rough reliability ranking for structured skill-invocation: **Claude Haiku ≈ GPT-4.1-mini/GPT-5-mini** (most schema-strict) **> Gemini Flash-tier > DeepSeek > Groq/Llama > local open-weight models**.
 
