@@ -1,0 +1,118 @@
+// Architecture of the Minecraft Companion Bot.
+// Landscape: you, the realm, and the bot process.
+// "bot" expands into its src/ module map (connection, chat, llm, skills, memory).
+
+person you "You"
+realm = sys/server "Your Realm" external { subtitle: "Minecraft realm" }
+
+system bot "Companion Bot" {
+  description: "Bun process — logs in as a second player account"
+  icon: logos/bun
+  domain: "bot"
+
+  index = sys/hexagon "index.ts" { subtitle: "entry point" }
+  config = sys/settings "AppConfig" { subtitle: "config/env.ts" }
+  memory = sys/database "Memory Store" datastore { subtitle: "memory/store.ts" }
+
+  system conn "Mineflayer" {
+    description: "mineflayer/"
+    client = sys/plug "Bot Client" { subtitle: "client.ts" }
+    target = sys/route "Connection Target" { subtitle: "connectionTarget.ts" }
+    plugins = sys/cog "Plugins" { subtitle: "pathfinder, pvp, tool…" }
+    reconnect = sys/repeat "Reconnect Supervisor" { subtitle: "reconnect.ts" }
+
+    client -> target
+    client -> plugins
+    reconnect -> client
+    layout { rows [reconnect] [client] [target plugins] }
+  }
+
+  system chatMod "Chat" {
+    description: "chat/"
+    router = sys/chatbot "Chat Router" { subtitle: "router.ts" }
+    builtin = sys/terminal "Builtin Commands" { subtitle: "stop / status / help" }
+    format = sys/file "Chat Format" { subtitle: "format.ts" }
+
+    router -> builtin
+    router -> format
+  }
+
+  system llmMod "LLM Brain" {
+    description: "llm/"
+    loop = sys/brain "Decision Loop" { subtitle: "decisionLoop.ts" }
+    ctxBuilder = sys/file-json "Context Builder" { subtitle: "contextBuilder.ts" }
+    toolSchema = sys/code "Tool Schema" { subtitle: "toolSchema.ts" }
+    repair = sys/bug "Repair" { subtitle: "repair.ts" }
+    modelRouter = sys/router "Model Router" { subtitle: "modelRouter.ts" }
+    factory = sys/workflow "Provider Factory" { subtitle: "factory.ts" }
+    anthropic = sys/brain-circuit "Anthropic Adapter" { subtitle: "anthropic.ts" }
+    openai = sys/brain-circuit "OpenAI Adapter" { subtitle: "openai.ts" }
+
+    loop -> ctxBuilder
+    loop -> toolSchema
+    loop -> repair
+    loop -> modelRouter
+    loop -> factory "provider.createTurn()"
+    factory -> anthropic
+    factory -> openai
+    layout { rows [loop] [ctxBuilder toolSchema repair modelRouter] [factory] [anthropic openai] }
+  }
+
+  system skillsMod "Skills" {
+    description: "skills/"
+    registry = sys/table "Skill Registry" { subtitle: "registry.ts" }
+    files = box "Skill Files" { subtitle: "6 skill modules" }
+
+    files -> registry
+  }
+
+  index -> config
+  index -> conn.client
+  index -> conn.reconnect
+  index -> skillsMod.registry
+  index -> llmMod.factory
+  index -> memory
+
+  conn.reconnect -> chatMod.router "onBot(bot)"
+  conn.reconnect -> memory "onDisconnect"
+
+  chatMod.router -> llmMod.loop
+  chatMod.router -> memory
+
+  llmMod.ctxBuilder -> memory "context: chat, inventory, nearby blocks, goals"
+  llmMod.toolSchema -> skillsMod.registry
+  llmMod.loop -> skillsMod.registry "skill.run(ctx, args)"
+
+  skillsMod.registry -> conn.client "executes via Mineflayer API"
+}
+
+you <-> realm "Minecraft protocol"
+realm <-> bot.conn.client "Minecraft protocol (bot joins as a normal player)"
+you -> bot.chatMod.router "@bot chat command"
+bot.chatMod.router -> you "chat reply"
+
+flow interaction "Chat command → action" {
+  you -> bot.chatMod.router
+  bot.chatMod.router -> bot.llmMod.loop
+  bot.llmMod.loop -> bot.skillsMod.registry
+  bot.skillsMod.registry -> bot.conn.client
+  bot.conn.client -> realm
+  bot.chatMod.router -> you
+}
+
+view landscape {
+  title "Minecraft Companion Bot — Landscape"
+  include *
+  layout { rows [realm you bot] }
+}
+
+view full {
+  title "Minecraft Companion Bot — Full Detail"
+  expand *
+  layout { rows [realm you bot] }
+}
+
+view bot {
+  title "Companion Bot — Module Map"
+  show flow interaction
+}
