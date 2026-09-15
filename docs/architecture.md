@@ -30,6 +30,21 @@ Open [`diagrams/architecture.html`](diagrams/architecture.html) for the interact
   <img alt="bot" src="diagrams/architecture.bot.light.svg">
 </picture>
 
+## Data flow — what actually moves
+
+The diagrams above are structure. [`diagrams/dataflow.squinch`](diagrams/dataflow.squinch) models
+one decision tick as *data*: the numbered hops from chat packet to chat reply. Open
+[`diagrams/dataflow-payloads.html`](diagrams/dataflow-payloads.html) to see the diagram beside the
+real payload at every hop — the `ChatTurn`, the world read, the on-disk `BotState`, the
+`DecisionContext`, the flattened prompt, `toolCalls[].argsRaw`, the `SkillResult`, and the growing
+`messages[]` — or [`diagrams/dataflow.html`](diagrams/dataflow.html) for the interactive/step-through
+version.
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="diagrams/dataflow.tick.dark.svg">
+  <img alt="decision tick data flow" src="diagrams/dataflow.tick.light.svg">
+</picture>
+
 ## Component diagram
 
 ```mermaid
