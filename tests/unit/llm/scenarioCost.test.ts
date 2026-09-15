@@ -150,7 +150,7 @@ describe('scenario: "chop some oak logs for me" — Haiku 4.5 cost simulation', 
     // heuristic, not the real tokenizer — the point is to catch order-of-magnitude regressions
     // (e.g. a much larger tool set, or an unexpected extra turn), not to nail an exact figure.
     // No hostiles and no active goal/task in this scenario, so `filterRelevantSkills` drops the
-    // 3 combat skills and 2 goal-gated skills, leaving 8 of the 13 registered skills' schemas on
+    // 3 combat skills and 2 goal-gated skills, leaving 7 of the 12 registered skills' schemas on
     // the wire — lower than the pre-filtering baseline.
     expect(totalInputTokens).toBeGreaterThan(2000);
     expect(totalInputTokens).toBeLessThan(3200);
@@ -198,7 +198,7 @@ describe('scenario: "chop some oak logs for me" — Haiku 4.5 cost simulation', 
     // No hostiles nearby and no active goal/task, so combat (attackNearest, stopCombat, fleeFrom)
     // and goal-gated (craftItem, buildStructure) skills are filtered out of every call's tools.
     const sentToolNames = provider.calls[0]?.tools.map((tool) => tool.name) ?? [];
-    expect(sentToolNames.length).toBe(registry.list().length - 5);
+    expect(sentToolNames.length).toBe(registry.list().length - 5); // 3 combat + 2 goal-gated
     expect(sentToolNames).not.toContain('attackNearest');
     expect(sentToolNames).not.toContain('stopCombat');
     expect(sentToolNames).not.toContain('fleeFrom');

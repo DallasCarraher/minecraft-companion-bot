@@ -9,6 +9,27 @@
 5. **LLM brain** — on each chat command or decision tick, packages up context (message, inventory, nearby blocks/entities, current goal) and sends it to the configured model, which returns a skill call or short generated snippet to execute. See [model-options.md](model-options.md) for model selection.
 6. **Memory/state** — local JSON files holding conversation history, current goal/plan, and anything the bot has learned (e.g. chest locations), giving it continuity across turns.
 
+## Squinch diagram
+
+A [Squinch](https://github.com/jquatier/squinch) model of the same architecture lives at
+[`diagrams/architecture.squinch`](diagrams/architecture.squinch), with a landscape view, a
+full-detail view of the `src/` module map, and a flow view for the chat-command interaction.
+Open [`diagrams/architecture.html`](diagrams/architecture.html) for the interactive version
+(click to zoom into `bot`, switch light/dark), or view the individual SVGs:
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="diagrams/architecture.landscape.dark.svg">
+  <img alt="landscape" src="diagrams/architecture.landscape.light.svg">
+</picture>
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="diagrams/architecture.full.dark.svg">
+  <img alt="full" src="diagrams/architecture.full.light.svg">
+</picture>
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="diagrams/architecture.bot.dark.svg">
+  <img alt="bot" src="diagrams/architecture.bot.light.svg">
+</picture>
+
 ## Component diagram
 
 ```mermaid

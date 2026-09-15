@@ -94,8 +94,7 @@ describe('filterRelevantSkills', () => {
       'equipBestTool',
       'equipArmor',
       'dropJunk',
-      'depositToChest',
-      'withdrawFromChest',
+      'chestTransfer',
     ]) {
       expect(names).toContain(alwaysOn);
     }
