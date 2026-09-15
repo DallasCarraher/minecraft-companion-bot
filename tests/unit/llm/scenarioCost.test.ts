@@ -154,7 +154,7 @@ describe('scenario: "chop some oak logs for me" — Haiku 4.5 cost simulation', 
     expect(totalCost).toBeGreaterThan(0.003);
     expect(totalCost).toBeLessThan(0.007);
 
-    // The architectural point this scenario is meant to demonstrate: all 13 skill schemas are
+    // The architectural point this scenario is meant to demonstrate: all 12 skill schemas are
     // sent on every single call, so most of the first call's input tokens are fixed overhead
     // that has nothing to do with this specific task. Registering more skills raises this floor.
     const firstCall = perCall[0];

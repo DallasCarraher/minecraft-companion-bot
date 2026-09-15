@@ -55,11 +55,12 @@ async function openChestAt(
   return container as Chest;
 }
 
-export const depositToChest = defineSkill({
-  name: 'depositToChest',
-  description: 'Open a chest at the given position and deposit an item into it.',
+export const chestTransfer = defineSkill({
+  name: 'chestTransfer',
+  description: 'Open a chest at the given position and deposit or withdraw an item.',
   argsSchema: z
     .object({
+      direction: z.enum(['deposit', 'withdraw']),
       position: chestPositionSchema,
       itemName: z.string().min(1),
       count: z.number().int().positive().max(64).default(64),
@@ -72,31 +73,10 @@ export const depositToChest = defineSkill({
 
     const chest = await openChestAt(ctx, args.position);
     try {
-      await chest.deposit(itemData.id, null, args.count);
-      return { ok: true, message: `Deposited ${args.count}x ${args.itemName}.` };
-    } finally {
-      await chest.close();
-    }
-  },
-});
-
-export const withdrawFromChest = defineSkill({
-  name: 'withdrawFromChest',
-  description: 'Open a chest at the given position and withdraw an item from it.',
-  argsSchema: z
-    .object({
-      position: chestPositionSchema,
-      itemName: z.string().min(1),
-      count: z.number().int().positive().max(64).default(64),
-    })
-    .strict(),
-  timeoutMs: 30_000,
-  async run(ctx, args) {
-    const itemData = ctx.bot.registry.itemsByName[args.itemName];
-    if (!itemData) throw new Error(`Unknown item "${args.itemName}"`);
-
-    const chest = await openChestAt(ctx, args.position);
-    try {
+      if (args.direction === 'deposit') {
+        await chest.deposit(itemData.id, null, args.count);
+        return { ok: true, message: `Deposited ${args.count}x ${args.itemName}.` };
+      }
       await chest.withdraw(itemData.id, null, args.count);
       return { ok: true, message: `Withdrew ${args.count}x ${args.itemName}.` };
     } finally {
