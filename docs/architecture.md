@@ -140,6 +140,19 @@ Key boundaries worth calling out:
 - **`ReconnectSupervisor` owns the bot lifecycle, not `ChatRouter`.** Each reconnect creates a new
   `Bot` and a new `ChatRouter` bound to it — state that must survive a reconnect (goals, task
   queue, known locations) lives in `MemoryStore`, not on the router or the bot object.
+- **Prompt caching is on by default, but the mechanism differs by provider.** The system prompt
+  and tool schemas are static for the process lifetime, yet `decisionLoop.ts` resends them on
+  every iteration and every chat trigger — both adapters mark them cacheable to avoid rebilling
+  identical input tokens. `providers/anthropic.ts` uses a single `cache_control` breakpoint on the
+  system block (Anthropic's cache prefix order is `tools -> system -> messages`, so that one
+  breakpoint covers both). `providers/openai.ts` only adds the equivalent breakpoint when routed
+  through OpenRouter to a model family that needs it explicitly (Anthropic, Google Gemini, Alibaba
+  Qwen) — OpenAI, DeepSeek, Groq, Grok, Moonshot, Z.AI, and Gemini 2.5+ already cache automatically
+  with no request changes. Future cost-tracking work should know cache usage is reported in
+  different places: `response.usage.cache_read_input_tokens` /
+  `response.usage.cache_creation_input_tokens` for native Anthropic, versus
+  `response.usage.prompt_tokens_details.cached_tokens` / `cache_write_tokens` for the OpenAI/
+  OpenRouter chat-completions shape.
 
 ## Practical caveats
 
