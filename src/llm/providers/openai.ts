@@ -1,5 +1,6 @@
 import OpenAI from 'openai';
 import type {
+  ChatCompletionContentPartText,
   ChatCompletionMessageParam,
   ChatCompletionTool,
 } from 'openai/resources/chat/completions';
@@ -10,6 +11,28 @@ import type {
   NormalizedToolCall,
   ToolSpec,
 } from '../types.js';
+
+/**
+ * OpenRouter's explicit prompt-caching field (`cache_control`, Anthropic-style syntax) is a wire
+ * extension on top of the OpenAI Chat Completions format — it isn't part of the upstream OpenAI
+ * SDK's types, so this augments the official content-part type rather than casting to `any`.
+ */
+type CacheableTextPart = ChatCompletionContentPartText & {
+  cache_control?: { type: 'ephemeral'; ttl?: string };
+};
+
+/**
+ * Per OpenRouter's prompt-caching docs, caching is automatic (no request changes needed) for
+ * OpenAI, DeepSeek, Groq, Grok, Moonshot, Z.AI, and Gemini 2.5+ (implicit) models. Anthropic
+ * Claude, Google Gemini (explicit mode), and Alibaba Qwen models instead require an explicit
+ * `cache_control` breakpoint on a structured content block, same as native Anthropic. This only
+ * matters when routed through OpenRouter — talking to the real OpenAI API never needs it.
+ */
+function needsExplicitCacheControl(model: string): boolean {
+  return (
+    model.startsWith('anthropic/') || model.startsWith('google/gemini') || model.startsWith('qwen/')
+  );
+}
 
 /**
  * Translates between our normalized shape and OpenAI's Chat Completions API. Like the Anthropic
@@ -53,9 +76,24 @@ export class OpenAIProvider implements LLMProvider {
       },
     }));
 
+    // See `needsExplicitCacheControl`'s doc comment: only Anthropic/Gemini/Qwen models routed
+    // through OpenRouter need the system prompt reshaped into a cacheable content block; every
+    // other case keeps the plain-string form so this is a no-op for the real OpenAI API and for
+    // OpenRouter-routed families that already cache automatically.
+    const systemContent: string | ChatCompletionContentPartText[] =
+      this.name === 'openrouter' && needsExplicitCacheControl(this.model)
+        ? [
+            {
+              type: 'text',
+              text: params.system,
+              cache_control: { type: 'ephemeral' },
+            } as CacheableTextPart,
+          ]
+        : params.system;
+
     const response = await this.client.chat.completions.create({
       model: this.model,
-      messages: [{ role: 'system', content: params.system }, ...toOpenAIMessages(params.messages)],
+      messages: [{ role: 'system', content: systemContent }, ...toOpenAIMessages(params.messages)],
       tools,
     });
 
