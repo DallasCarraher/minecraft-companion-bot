@@ -1,10 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import {
-  equipArmor,
-  dropJunk,
-  depositToChest,
-  withdrawFromChest,
-} from '../../../src/skills/inventory.js';
+import { equipArmor, dropJunk, chestTransfer } from '../../../src/skills/inventory.js';
 
 describe('equipArmor.argsSchema', () => {
   it('accepts an empty object', () => {
@@ -22,32 +17,46 @@ describe('dropJunk.argsSchema', () => {
   });
 });
 
-describe('depositToChest.argsSchema', () => {
+describe('chestTransfer.argsSchema', () => {
   const position = { x: 1, y: 64, z: 1 };
 
-  it('accepts valid args and applies the count default', () => {
-    const data = depositToChest.argsSchema.parse({ position, itemName: 'cobblestone' });
+  it('accepts valid deposit args and applies the count default', () => {
+    const data = chestTransfer.argsSchema.parse({
+      direction: 'deposit',
+      position,
+      itemName: 'cobblestone',
+    });
     expect(data.count).toBe(64);
+  });
+
+  it('accepts valid withdraw args', () => {
+    expect(
+      chestTransfer.argsSchema.safeParse({
+        direction: 'withdraw',
+        position,
+        itemName: 'cobblestone',
+        count: 10,
+      }).success,
+    ).toBe(true);
   });
 
   it('rejects a non-numeric position field', () => {
     expect(
-      depositToChest.argsSchema.safeParse({
+      chestTransfer.argsSchema.safeParse({
+        direction: 'deposit',
         position: { x: '1', y: 64, z: 1 },
         itemName: 'cobblestone',
       }).success,
     ).toBe(false);
   });
-});
 
-describe('withdrawFromChest.argsSchema', () => {
-  it('accepts valid args', () => {
+  it('rejects an invalid direction', () => {
     expect(
-      withdrawFromChest.argsSchema.safeParse({
-        position: { x: 1, y: 64, z: 1 },
+      chestTransfer.argsSchema.safeParse({
+        direction: 'sideways',
+        position,
         itemName: 'cobblestone',
-        count: 10,
       }).success,
-    ).toBe(true);
+    ).toBe(false);
   });
 });
