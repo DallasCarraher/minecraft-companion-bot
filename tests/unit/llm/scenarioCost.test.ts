@@ -9,6 +9,7 @@ import { registerAllSkills } from '../../../src/skills/index.js';
 import { MemoryStore } from '../../../src/memory/store.js';
 import { parseConfig } from '../../../src/config/env.js';
 import { buildSystemPrompt } from '../../../src/prompts/system.js';
+import { buildToolSpecs } from '../../../src/llm/toolSchema.js';
 import { createFakeBot } from '../../fakes/fakeBot.js';
 import { FakeLLMProvider, endResponse, toolCallResponse } from '../../fakes/fakeLLMProvider.js';
 import { estimateTickCost, estimateTokens, HAIKU_4_5_PRICING } from '../../fakes/costEstimate.js';
@@ -148,17 +149,64 @@ describe('scenario: "chop some oak logs for me" — Haiku 4.5 cost simulation', 
     // Baked-in expectations from the walkthrough. Bounds are wide because this is a char-count
     // heuristic, not the real tokenizer — the point is to catch order-of-magnitude regressions
     // (e.g. a much larger tool set, or an unexpected extra turn), not to nail an exact figure.
-    expect(totalInputTokens).toBeGreaterThan(3500);
-    expect(totalInputTokens).toBeLessThan(4500);
+    // No hostiles and no active goal/task in this scenario, so `filterRelevantSkills` drops the
+    // 3 combat skills and 2 goal-gated skills, leaving 8 of the 13 registered skills' schemas on
+    // the wire — lower than the pre-filtering baseline.
+    expect(totalInputTokens).toBeGreaterThan(2000);
+    expect(totalInputTokens).toBeLessThan(3200);
     expect(totalOutputTokens).toBeLessThan(150);
-    expect(totalCost).toBeGreaterThan(0.003);
-    expect(totalCost).toBeLessThan(0.007);
+    expect(totalCost).toBeGreaterThan(0.002);
+    expect(totalCost).toBeLessThan(0.005);
 
-    // The architectural point this scenario is meant to demonstrate: all 13 skill schemas are
-    // sent on every single call, so most of the first call's input tokens are fixed overhead
-    // that has nothing to do with this specific task. Registering more skills raises this floor.
+    // The architectural point this scenario is meant to demonstrate: most of the first call's
+    // input tokens are still tool-definition overhead unrelated to this specific task, even after
+    // filtering trims out the skills that plainly don't apply.
     const firstCall = perCall[0];
     const firstCallToolTokens = estimateTokens(JSON.stringify(provider.calls[0]?.tools));
-    expect(firstCall && firstCallToolTokens / firstCall.inputTokens).toBeGreaterThan(0.6);
+    expect(firstCall && firstCallToolTokens / firstCall.inputTokens).toBeGreaterThan(0.4);
+  });
+
+  it('sends fewer tool schemas than the full registry when combat/goal-gated skills do not apply', async () => {
+    const registry = new SkillRegistry();
+    registerAllSkills(registry);
+
+    const responses = [
+      toolCallResponse('collectBlock', { blockName: 'oak_log', count: 5 }),
+      endResponse('Got 5 oak logs for you!'),
+    ];
+    const provider = new FakeLLMProvider(responses);
+    const config = makeConfig();
+
+    await runDecisionTick({
+      bot: makeSceneBot(),
+      logger: silentLogger,
+      memory,
+      config,
+      registry,
+      provider,
+      triggerMessage: {
+        role: 'user',
+        username: 'Steve',
+        text: 'chop some oak logs for me',
+        at: new Date().toISOString(),
+      },
+      systemPrompt: buildSystemPrompt(config),
+      signal: new AbortController().signal,
+      say: () => {},
+    });
+
+    // No hostiles nearby and no active goal/task, so combat (attackNearest, stopCombat, fleeFrom)
+    // and goal-gated (craftItem, buildStructure) skills are filtered out of every call's tools.
+    const sentToolNames = provider.calls[0]?.tools.map((tool) => tool.name) ?? [];
+    expect(sentToolNames.length).toBe(registry.list().length - 5);
+    expect(sentToolNames).not.toContain('attackNearest');
+    expect(sentToolNames).not.toContain('stopCombat');
+    expect(sentToolNames).not.toContain('fleeFrom');
+    expect(sentToolNames).not.toContain('craftItem');
+    expect(sentToolNames).not.toContain('buildStructure');
+
+    const fullRegistryToolTokens = estimateTokens(JSON.stringify(buildToolSpecs(registry.list())));
+    const filteredToolTokens = estimateTokens(JSON.stringify(provider.calls[0]?.tools));
+    expect(filteredToolTokens).toBeLessThan(fullRegistryToolTokens);
   });
 });
