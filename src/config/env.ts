@@ -15,12 +15,14 @@ const AppConfigSchema = z
 
     msAuthProfilesFolder: z.string().min(1),
 
-    llmProvider: z.enum(['anthropic', 'openai']),
+    llmProvider: z.enum(['anthropic', 'openai', 'openrouter']),
     anthropicApiKey: z.string().optional(),
     anthropicModelPrimary: z.string().default('claude-haiku-4-5'),
     anthropicModelEscalation: z.string().default('claude-sonnet-5'),
     openaiApiKey: z.string().optional(),
     openaiModelPrimary: z.string().default('gpt-4.1-mini'),
+    openrouterApiKey: z.string().optional(),
+    openrouterModelPrimary: z.string().default('anthropic/claude-haiku-4.5'),
 
     chatTriggerMode: z.enum(['mention', 'prefix', 'all']).default('mention'),
     chatTriggerPrefix: z.string().default('!bot'),
@@ -70,6 +72,13 @@ const AppConfigSchema = z
         message: 'OPENAI_API_KEY is required when LLM_PROVIDER=openai',
       });
     }
+    if (value.llmProvider === 'openrouter' && !value.openrouterApiKey) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['openrouterApiKey'],
+        message: 'OPENROUTER_API_KEY is required when LLM_PROVIDER=openrouter',
+      });
+    }
   });
 
 export type AppConfig = z.infer<typeof AppConfigSchema>;
@@ -89,6 +98,8 @@ function readEnv(): Record<string, string | undefined> {
     anthropicModelEscalation: process.env.ANTHROPIC_MODEL_ESCALATION,
     openaiApiKey: process.env.OPENAI_API_KEY,
     openaiModelPrimary: process.env.OPENAI_MODEL_PRIMARY,
+    openrouterApiKey: process.env.OPENROUTER_API_KEY,
+    openrouterModelPrimary: process.env.OPENROUTER_MODEL_PRIMARY,
     chatTriggerMode: process.env.CHAT_TRIGGER_MODE,
     chatTriggerPrefix: process.env.CHAT_TRIGGER_PREFIX,
     chatAllowlist: process.env.CHAT_ALLOWLIST,

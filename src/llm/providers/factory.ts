@@ -15,6 +15,14 @@ export function createLLMProvider(config: AppConfig): LLMProvider {
     case 'openai':
       if (!config.openaiApiKey) throw new Error('OPENAI_API_KEY is required');
       return new OpenAIProvider(config.openaiApiKey, config.openaiModelPrimary);
+    case 'openrouter':
+      if (!config.openrouterApiKey) throw new Error('OPENROUTER_API_KEY is required');
+      return new OpenAIProvider(
+        config.openrouterApiKey,
+        config.openrouterModelPrimary,
+        'https://openrouter.ai/api/v1',
+        'openrouter',
+      );
   }
 }
 

@@ -5,3 +5,7 @@ dist/
 data/
 .minecraft-auth/
 coverage/
+local-test-server/
+.scratch/
+.yalc/
+yalc.lock

@@ -24,5 +24,12 @@
   "env": {
     "builtin": true
   },
-  "ignorePatterns": ["dist", "node_modules", "data", ".minecraft-auth"]
+  "ignorePatterns": [
+    "dist",
+    "node_modules",
+    "data",
+    ".minecraft-auth",
+    "local-test-server",
+    ".yalc"
+  ]
 }

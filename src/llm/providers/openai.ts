@@ -19,14 +19,23 @@ import type {
  * as needing more JSON-repair robustness than Haiku, so any provider gets the same safety net.
  */
 export class OpenAIProvider implements LLMProvider {
-  readonly name = 'openai';
+  readonly name: string;
   private readonly client: OpenAI;
 
+  /**
+   * `baseURL` lets this same adapter target any OpenAI-Chat-Completions-compatible endpoint —
+   * e.g. OpenRouter (https://openrouter.ai/api/v1) — since the request/response shape, including
+   * tool calls, is the same wire format. Model capability (especially `strict` JSON-schema tool
+   * calling) still varies by the underlying model OpenRouter routes to.
+   */
   constructor(
     apiKey: string,
     private readonly model: string,
+    baseURL?: string,
+    name = 'openai',
   ) {
-    this.client = new OpenAI({ apiKey });
+    this.client = new OpenAI({ apiKey, baseURL });
+    this.name = name;
   }
 
   async createTurn(params: {

@@ -1,6 +1,7 @@
 import type { Bot } from 'mineflayer';
 import type { Logger } from '../logger/logger.js';
 import { exponentialBackoff } from '../util/backoff.js';
+import { formatKickReason } from './kickReason.js';
 import {
   RECONNECT_BACKOFF_INITIAL_MS,
   RECONNECT_BACKOFF_MAX_MS,
@@ -70,7 +71,11 @@ export class ReconnectSupervisor {
     };
 
     bot.once('end', (reason: string) => handleDisconnect(reason ?? 'end'));
-    bot.once('kicked', (reason: string) => handleDisconnect(`kicked: ${reason}`));
+    // Despite mineflayer's `reason: string` type, modern protocol versions send a JSON
+    // chat-component object here, not a string — formatKickReason renders it to text.
+    bot.once('kicked', (reason: unknown) =>
+      handleDisconnect(`kicked: ${formatKickReason(reason, bot.registry)}`),
+    );
 
     onBot(bot);
   }

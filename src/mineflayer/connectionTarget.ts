@@ -11,6 +11,14 @@ import type { AppConfig } from '../config/env.js';
  * the `realms.pickRealm` callback; no direct `prismarine-auth`/`prismarine-realms` dependency is
  * required. Because this resolution runs fresh inside every `createClient` call, a realm's
  * address rotating between sessions is a non-issue as long as reconnects create a fresh bot.
+ *
+ * Realm mode + a pinned version (config.minecraftVersion is always pinned, see client.ts) needs a
+ * currently-unreleased minecraft-protocol fix (PrismarineJS/node-minecraft-protocol#1530):
+ * `createClient`'s realm+microsoft branch never set `client.wait_connect`, so mineflayer's plugin
+ * injection ran before the realm-auth promise chain finished setting up the client, crashing with
+ * `bot._client.registerChannel is not a function` before the device-code prompt even appeared.
+ * Until that ships, `node_modules/minecraft-protocol/src/createClient.js` needs the same one-line
+ * patch reapplied after every `bun install` (see the PR for the exact diff).
  */
 export function buildConnectionOptions(
   config: Pick<AppConfig, 'connectionMode' | 'serverHost' | 'serverPort' | 'realmName'>,

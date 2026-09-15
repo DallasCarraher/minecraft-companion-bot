@@ -7,6 +7,7 @@
       "dependencies": {
         "@anthropic-ai/sdk": "^0.125.0",
         "dotenv": "^17.4.2",
+        "minecraft-data": "file:.yalc/minecraft-data",
         "mineflayer": "^4.39.0",
         "mineflayer-armor-manager": "^2.0.1",
         "mineflayer-collectblock": "^1.6.0",
@@ -28,6 +29,9 @@
         "vitest": "^5.0.0",
       },
     },
+  },
+  "overrides": {
+    "minecraft-data": "file:.yalc/minecraft-data",
   },
   "packages": {
     "@anthropic-ai/sdk": ["@anthropic-ai/sdk@0.125.0", "", { "dependencies": { "json-schema-to-ts": "^3.1.1", "standardwebhooks": "^1.0.0" }, "peerDependencies": { "zod": "^3.25.0 || ^4.0.0" }, "optionalPeers": ["zod"], "bin": { "anthropic-ai-sdk": "bin/cli" } }, "sha512-Hq5wYlXupzJ9M1Fzqjqa3hObcuigEXVZJqSYDgeZGM3wF4qrNERM5Z1OOAeoT9rlod8awJ3uYyJjbQXp1ckIGg=="],
@@ -326,7 +330,7 @@
 
     "magicast": ["magicast@0.5.5", "", { "dependencies": { "@babel/parser": "^7.29.7", "@babel/types": "^7.29.7", "source-map-js": "^1.2.1" } }, "sha512-UicdXN8zQ3JHlxVq+28afMXPr1z7WNY6+7EJnzTdQWkTAlMLF5fNCCKxJHBQwGaNGR11581EiQmQzx73+MvszA=="],
 
-    "minecraft-data": ["minecraft-data@3.116.0", "", {}, "sha512-2XwQjnAqCdCdhEts6cm1nnmzeeCCbsiAhhuOa6rQOTKceGkwZTE8ZJwO3UeJLwvjEAh8S0/irXN1Xqv/lhceNg=="],
+    "minecraft-data": ["minecraft-data@file:.yalc/minecraft-data", {}],
 
     "minecraft-folder-path": ["minecraft-folder-path@1.2.0", "", {}, "sha512-qaUSbKWoOsH9brn0JQuBhxNAzTDMwrOXorwuRxdJKKKDYvZhtml+6GVCUrY5HRiEsieBEjCUnhVpDuQiKsiFaw=="],
 
@@ -532,6 +536,14 @@
 
     "@types/readable-stream/@types/node": ["@types/node@26.5.1", "", { "dependencies": { "undici-types": "~8.9.0" } }, "sha512-CzNm2FezW4VR/LjG6yUdiEgLE/rAQ9Slj5gCu/C2VrdcW7I0ahNZ8DRbHT7zOZ6r3ONgd/bsQIeSaoDGrd1C6g=="],
 
+    "minecraft-protocol/minecraft-data": ["minecraft-data@file:.yalc/minecraft-data", {}],
+
+    "mineflayer/minecraft-data": ["minecraft-data@file:.yalc/minecraft-data", {}],
+
+    "mineflayer-armor-manager/minecraft-data": ["minecraft-data@file:.yalc/minecraft-data", {}],
+
+    "mineflayer-pathfinder/minecraft-data": ["minecraft-data@file:.yalc/minecraft-data", {}],
+
     "mineflayer-utils/@types/node": ["@types/node@14.18.63", "", {}, "sha512-fAtCfv4jJg+ExtXhvCkCqUKZ+4ok/JQk01qDKhL5BDDoS3AxKXhV5/MAVUZyQnSEd2GT92fkgZl0pz0Q0AzcIQ=="],
 
     "mineflayer-utils/mineflayer": ["mineflayer@2.41.0", "", { "dependencies": { "minecraft-data": "^2.70.0", "minecraft-protocol": "^1.17.0", "prismarine-biome": "^1.1.0", "prismarine-block": "^1.6.0", "prismarine-chat": "^1.0.0", "prismarine-chunk": "^1.20.3", "prismarine-entity": "^1.0.0", "prismarine-item": "^1.5.0", "prismarine-physics": "^1.0.4", "prismarine-recipe": "^1.1.0", "prismarine-windows": "^1.5.0", "prismarine-world": "^3.2.0", "protodef": "^1.8.0", "typed-emitter": "^1.2.0", "vec3": "^0.1.6" } }, "sha512-IFFy4NgF24FU2PkAwazJphl2F+3gpbpN578ex0sq1XfcBBRge3kCz1UC2KDMjKI+V/8vffOL+OEnug9jt3f7Vw=="],
@@ -540,7 +552,13 @@
 
     "mineflayer-utils/typescript": ["typescript@3.9.10", "", { "bin": { "tsc": "bin/tsc", "tsserver": "bin/tsserver" } }, "sha512-w6fIxVE/H1PkLKcCPsFqKE7Kv7QUwhU8qQY2MueZXWx5cPZdwFupLgKK3vntcK98BtNHZtAF4LA/yl2a7k8R6Q=="],
 
+    "prismarine-block/minecraft-data": ["minecraft-data@file:.yalc/minecraft-data", {}],
+
+    "prismarine-physics/minecraft-data": ["minecraft-data@file:.yalc/minecraft-data", {}],
+
     "prismarine-physics/vec3": ["vec3@0.2.0", "", {}, "sha512-jOjU4zbCNWOKOGLHop1I0J2Ar4h5Zz76455LJhJKhiOJwI21QP6d5TnKklNZDKG+c5h71zWtPAbd9wh+Va57OQ=="],
+
+    "prismarine-registry/minecraft-data": ["minecraft-data@file:.yalc/minecraft-data", {}],
 
     "prismarine-windows/typed-emitter": ["typed-emitter@2.1.0", "", { "optionalDependencies": { "rxjs": "*" } }, "sha512-g/KzbYKbH5C2vPkaXGu8DJlHrGKHLsM25Zg9WuC9pMGfuvT+X25tZQWo5fK1BjBm8+UrVE9LDCvaY0CQk+fXDA=="],
 
@@ -550,7 +568,7 @@
 
     "@types/readable-stream/@types/node/undici-types": ["undici-types@8.9.0", "", {}, "sha512-KTDyRTYX8sWmKXAikPHHSyc63CRPETMctyjKFupcC6OBLXT3xsN0e9aF7m+mIXutFWpUXuedtowG7iLOzp0kQg=="],
 
-    "mineflayer-utils/mineflayer/minecraft-data": ["minecraft-data@2.221.0", "", {}, "sha512-0AhqzbIKb6WqPSF6qBevaPryeWOz545hLxt6q+gfJF8YIQX/YfkyX/nXWhl+pSIS2rTBcQ0RJkRCtTeRzQwHDA=="],
+    "mineflayer-utils/mineflayer/minecraft-data": ["minecraft-data@file:.yalc/minecraft-data", {}],
 
     "mineflayer-utils/mineflayer/prismarine-windows": ["prismarine-windows@1.6.0", "", { "dependencies": { "prismarine-item": "^1.4.0" } }, "sha512-026LG1yR76Xb62kM+W83IWT7Wy2yKplllbXNFBF2m0Lr4k4YpYKnpLb8tRft8MLOLRbYAt/KnxE/YKvRZul7kw=="],
   }
