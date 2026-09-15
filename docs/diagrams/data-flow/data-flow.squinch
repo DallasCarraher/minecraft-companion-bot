@@ -1,0 +1,80 @@
+// One decision tick, end to end — what data moves between the pieces.
+// Companion to architecture/architecture.squinch: that one is the module map, this one is the payloads.
+// The worked JSON for every hop lives in data-flow-payloads.html.
+
+person you "You"
+realm = sys/server "Your Realm" external { subtitle: "Minecraft realm" }
+
+system tick "Decision tick" {
+  description: "One triggered chat line in, one chat reply out"
+  icon: logos/bun
+  domain: "src/"
+
+  evt = sys/chatbot "chat event" { subtitle: "username, message" }
+  router = sys/route "ChatRouter" { subtitle: "trigger gate" }
+  world = sys/globe "World read" { subtitle: "live bot state" }
+  memory = sys/database "MemoryStore" datastore { subtitle: "state.json" }
+  ctxb = sys/file-json "DecisionContext" { subtitle: "contextBuilder" }
+  prompt = sys/file "Prompt message" { subtitle: "role: user" }
+  loop = sys/brain "Decision loop" { subtitle: "messages[]" }
+  provider = sys/brain-circuit "LLM provider" { subtitle: "createTurn()" }
+  validate = sys/shield-check "Args validation" { subtitle: "zod + repair" }
+  skill = sys/cog "skill.run()" { subtitle: "SkillResult" }
+  toolres = sys/file-json "Tool result" { subtitle: "role: tool" }
+  reply = sys/message-square "Chat reply" { subtitle: "chunked lines" }
+
+  evt -> router "raw strings"
+  router -> memory "ChatTurn"
+  router -> ctxb "runDecisionTick()"
+  world -> ctxb "inventory, blocks, entities"
+  memory -> ctxb "goal, taskQueue, chat"
+  ctxb -> prompt "contextToMessage()"
+  prompt -> loop "messages[0]"
+  loop -> provider "system + messages[] + tools[]"
+  provider -> validate "toolCalls[].argsRaw"
+  validate -> skill "parsed args"
+  skill -> toolres "ok, message"
+  toolres ~> loop "next iteration"
+  loop -> reply "stopReason: end"
+  reply -> memory "ChatTurn (assistant)"
+}
+
+you -> realm "types “@bot go chop some wood”"
+realm -> tick.evt "chat packet"
+tick.world -> realm "mineflayer API: pathfind, mine, craft"
+tick.reply -> you "“Collected 10x oak_log.”"
+
+flow onetick "One tick, hop by hop" {
+  realm -> tick.evt
+  tick.evt -> tick.router
+  tick.router -> tick.memory
+  tick.router -> tick.ctxb
+  tick.world -> tick.ctxb
+  tick.memory -> tick.ctxb
+  tick.ctxb -> tick.prompt
+  tick.prompt -> tick.loop
+  tick.loop -> tick.provider
+  tick.provider -> tick.validate
+  tick.validate -> tick.skill
+  tick.skill -> tick.toolres
+  tick.toolres ~> tick.loop
+  tick.loop -> tick.reply
+  tick.reply -> you
+}
+
+view landscape {
+  title "Decision tick — landscape"
+  include *
+}
+
+view tick {
+  title "Decision tick — data flow"
+  show flow onetick
+  note right-of memory "The only thing on disk. Everything else is rebuilt per tick."
+  note left-of world "Read fresh each tick, never persisted."
+}
+
+view full {
+  title "Decision tick — full detail"
+  expand *
+}

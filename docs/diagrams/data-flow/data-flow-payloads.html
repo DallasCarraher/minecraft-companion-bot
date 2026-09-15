@@ -1,0 +1,427 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Decision tick — data flow with payloads</title>
+    <style>
+      :root {
+        color-scheme: light dark;
+        --bg: #ffffff;
+        --panel: #f6f7f9;
+        --border: #d8dce3;
+        --text: #10131a;
+        --muted: #5a6273;
+        --code-bg: #f1f3f7;
+        --accent: #5b5bd6;
+        --key: #7a3e9d;
+        --str: #1a6b3c;
+        --num: #9a5b00;
+      }
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --bg: #131313;
+          --panel: #1b1b1d;
+          --border: #2e2f33;
+          --text: #e9e9ec;
+          --muted: #9a9aa5;
+          --code-bg: #101012;
+          --accent: #9b9bf0;
+          --key: #c99bf0;
+          --str: #8fd6a5;
+          --num: #e0b25f;
+        }
+      }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        background: var(--bg);
+        color: var(--text);
+        font: 15px/1.55 ui-sans-serif, -apple-system, "Segoe UI", Roboto, sans-serif;
+      }
+      header {
+        padding: 28px 32px 8px;
+        border-bottom: 1px solid var(--border);
+      }
+      h1 { font-size: 22px; margin: 0 0 6px; }
+      header p { margin: 0; color: var(--muted); max-width: 70ch; }
+      header a { color: var(--accent); }
+      .layout {
+        display: grid;
+        grid-template-columns: minmax(420px, 44%) 1fr;
+        gap: 0;
+        align-items: start;
+      }
+      @media (max-width: 1100px) { .layout { grid-template-columns: 1fr; } }
+      .diagram {
+        position: sticky;
+        top: 0;
+        max-height: 100vh;
+        overflow: auto;
+        padding: 20px;
+        border-right: 1px solid var(--border);
+        background: var(--panel);
+      }
+      .diagram img { width: 100%; height: auto; }
+      .diagram .caption { color: var(--muted); font-size: 13px; margin: 0 0 12px; }
+      .steps { padding: 20px 32px 80px; }
+      .step {
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        background: var(--panel);
+        padding: 14px 16px;
+        margin: 0 0 14px;
+      }
+      .step > h2 {
+        font-size: 15px;
+        margin: 0 0 4px;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+      .badge {
+        flex: none;
+        width: 22px;
+        height: 22px;
+        border-radius: 50%;
+        background: var(--accent);
+        color: #fff;
+        font-size: 12px;
+        font-weight: 600;
+        display: grid;
+        place-items: center;
+      }
+      .where { color: var(--muted); font-weight: 400; font-size: 13px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+      .step > p { margin: 6px 0 10px; color: var(--muted); }
+      pre {
+        margin: 0;
+        padding: 12px 14px;
+        background: var(--code-bg);
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        overflow-x: auto;
+        font: 12.5px/1.5 ui-monospace, SFMono-Regular, Menlo, monospace;
+        white-space: pre;
+      }
+      .k { color: var(--key); }
+      .s { color: var(--str); }
+      .n { color: var(--num); }
+      .c { color: var(--muted); font-style: italic; }
+      h3.section {
+        margin: 26px 0 12px;
+        font-size: 13px;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: var(--muted);
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <h1>Decision tick — what actually moves</h1>
+      <p>
+        One triggered chat line in, one chat reply out. The diagram is
+        <a href="data-flow.squinch">data-flow.squinch</a> (interactive version:
+        <a href="data-flow.html">data-flow.html</a>); the numbers below match the badges on it. Every
+        payload here is the real shape from <code>src/</code>, filled with a plausible example —
+        <code>@bot go chop some wood</code>.
+      </p>
+    </header>
+
+    <div class="layout">
+      <aside class="diagram">
+        <p class="caption">Flow badges 1–15 = the cards on the right.</p>
+        <picture>
+          <img alt="Decision tick data flow" src="data-flow.svg" />
+        </picture>
+      </aside>
+
+      <main class="steps">
+        <h3 class="section">Trigger</h3>
+
+        <div class="step">
+          <h2><span class="badge">1</span> Chat packet <span class="where">realm → mineflayer</span></h2>
+          <p>The bot is a normal player, so it just receives chat. Mineflayer hands us two strings — no structure yet.</p>
+<pre><span class="c">// bot.on('chat', (username, message) =&gt; ...)</span>
+<span class="s">"Dallas"</span>, <span class="s">"@bot go chop some wood"</span></pre>
+        </div>
+
+        <div class="step">
+          <h2><span class="badge">2</span> Trigger gate <span class="where">chat/router.ts</span></h2>
+          <p>
+            Allowlist → record → trigger test → built-in commands → per-user cooldown → single-flight.
+            Untriggered chat is still recorded as ambient context but never reaches the model; that
+            plus the cooldown are the cost-control levers.
+          </p>
+<pre>{
+  <span class="k">"username"</span>: <span class="s">"Dallas"</span>,
+  <span class="k">"raw"</span>: <span class="s">"@bot go chop some wood"</span>,
+  <span class="k">"triggered"</span>: <span class="n">true</span>,           <span class="c">// chatTriggerMode: "mention"</span>
+  <span class="k">"strippedText"</span>: <span class="s">"go chop some wood"</span>,
+  <span class="k">"builtinReply"</span>: <span class="n">null</span>,          <span class="c">// "stop" / "status" / "help" would short-circuit here</span>
+  <span class="k">"cooldownMsRemaining"</span>: <span class="n">0</span>
+}</pre>
+        </div>
+
+        <div class="step">
+          <h2><span class="badge">3</span> ChatTurn → memory <span class="where">memory/store.ts</span></h2>
+          <p>
+            Appended to <code>conversation</code>, capped at the last 40 turns, then persisted with a
+            500&nbsp;ms debounce and an atomic tmp-file rename.
+          </p>
+<pre>{
+  <span class="k">"role"</span>: <span class="s">"user"</span>,
+  <span class="k">"username"</span>: <span class="s">"Dallas"</span>,
+  <span class="k">"text"</span>: <span class="s">"go chop some wood"</span>,
+  <span class="k">"at"</span>: <span class="s">"2026-09-15T20:11:03.412Z"</span>
+}</pre>
+        </div>
+
+        <div class="step">
+          <h2><span class="badge">4</span> runDecisionTick() <span class="where">llm/decisionLoop.ts</span></h2>
+          <p>One tick owns one AbortController: "stop", a preempting tick, or a disconnect cancels it.</p>
+<pre>{
+  <span class="k">"triggerMessage"</span>: { <span class="k">"role"</span>: <span class="s">"user"</span>, <span class="k">"username"</span>: <span class="s">"Dallas"</span>, <span class="k">"text"</span>: <span class="s">"go chop some wood"</span>, <span class="k">"at"</span>: <span class="s">"…"</span> },
+  <span class="k">"systemPrompt"</span>: <span class="s">"You are a helpful Minecraft companion…"</span>,  <span class="c">// static, cacheable</span>
+  <span class="k">"signal"</span>: <span class="s">"AbortSignal { aborted: false }"</span>,
+  <span class="k">"say"</span>: <span class="s">"(msg) =&gt; void"</span>  <span class="c">// immediate ack: "On it — working on that now."</span>
+}</pre>
+        </div>
+
+        <h3 class="section">Context assembly</h3>
+
+        <div class="step">
+          <h2><span class="badge">5</span> World read <span class="where">live mineflayer bot</span></h2>
+          <p>
+            Read fresh every tick, never persisted. Bounded on purpose: 16-block radius, 200 blocks
+            sampled, 15 block types, 10 nearest entities.
+          </p>
+<pre>{
+  <span class="k">"inventory"</span>: [
+    { <span class="k">"name"</span>: <span class="s">"oak_log"</span>, <span class="k">"count"</span>: <span class="n">12</span> },
+    { <span class="k">"name"</span>: <span class="s">"stone_axe"</span>, <span class="k">"count"</span>: <span class="n">1</span> },
+    { <span class="k">"name"</span>: <span class="s">"bread"</span>, <span class="k">"count"</span>: <span class="n">5</span> }
+  ],
+  <span class="k">"nearbyBlockTypes"</span>: [<span class="s">"grass_block"</span>, <span class="s">"dirt"</span>, <span class="s">"oak_log"</span>, <span class="s">"oak_leaves"</span>, <span class="s">"stone"</span>, <span class="s">"water"</span>],
+  <span class="k">"nearbyEntities"</span>: [
+    { <span class="k">"name"</span>: <span class="s">"Dallas"</span>, <span class="k">"distance"</span>: <span class="n">4.2</span>, <span class="k">"isHostile"</span>: <span class="n">false</span> },
+    { <span class="k">"name"</span>: <span class="s">"cow"</span>, <span class="k">"distance"</span>: <span class="n">11.6</span>, <span class="k">"isHostile"</span>: <span class="n">false</span> },
+    { <span class="k">"name"</span>: <span class="s">"zombie"</span>, <span class="k">"distance"</span>: <span class="n">18.7</span>, <span class="k">"isHostile"</span>: <span class="n">true</span> }
+  ]
+}</pre>
+        </div>
+
+        <div class="step">
+          <h2><span class="badge">6</span> Memory snapshot <span class="where">data/state.&lt;realmId&gt;.json</span></h2>
+          <p>
+            The only thing on disk, and the only thing that survives a reconnect — it lives in
+            <code>MemoryStore</code>, not on the bot or the router. Zod-validated on load; a corrupt
+            file starts fresh rather than crashing.
+          </p>
+<pre>{
+  <span class="k">"version"</span>: <span class="n">1</span>,
+  <span class="k">"realmId"</span>: <span class="s">"home"</span>,
+  <span class="k">"conversation"</span>: [                       <span class="c">// last 40 turns</span>
+    { <span class="k">"role"</span>: <span class="s">"user"</span>, <span class="k">"username"</span>: <span class="s">"Dallas"</span>, <span class="k">"text"</span>: <span class="s">"where are you?"</span>, <span class="k">"at"</span>: <span class="s">"2026-09-15T20:04:55.001Z"</span> },
+    { <span class="k">"role"</span>: <span class="s">"assistant"</span>, <span class="k">"text"</span>: <span class="s">"By the wood chest."</span>, <span class="k">"at"</span>: <span class="s">"2026-09-15T20:04:57.330Z"</span> },
+    { <span class="k">"role"</span>: <span class="s">"user"</span>, <span class="k">"username"</span>: <span class="s">"Dallas"</span>, <span class="k">"text"</span>: <span class="s">"go chop some wood"</span>, <span class="k">"at"</span>: <span class="s">"2026-09-15T20:11:03.412Z"</span> }
+  ],
+  <span class="k">"goal"</span>: { <span class="k">"description"</span>: <span class="s">"keep the wood chest stocked"</span>, <span class="k">"createdAt"</span>: <span class="s">"2026-09-14T18:20:11.004Z"</span> },
+  <span class="k">"taskQueue"</span>: [
+    { <span class="k">"id"</span>: <span class="s">"t_8f2c"</span>, <span class="k">"description"</span>: <span class="s">"collect 10 oak_log"</span>, <span class="k">"status"</span>: <span class="s">"active"</span>, <span class="k">"createdAt"</span>: <span class="s">"2026-09-15T20:11:03.500Z"</span> }
+  ],
+  <span class="k">"knownLocations"</span>: {
+    <span class="k">"wood chest"</span>: { <span class="k">"x"</span>: <span class="n">112</span>, <span class="k">"y"</span>: <span class="n">64</span>, <span class="k">"z"</span>: <span class="n">-308</span>, <span class="k">"label"</span>: <span class="s">"wood chest"</span>, <span class="k">"note"</span>: <span class="s">"logs + planks"</span> },
+    <span class="k">"base"</span>: { <span class="k">"x"</span>: <span class="n">98</span>, <span class="k">"y"</span>: <span class="n">70</span>, <span class="k">"z"</span>: <span class="n">-300</span>, <span class="k">"label"</span>: <span class="s">"base"</span> }
+  },
+  <span class="k">"playerPermissions"</span>: {
+    <span class="k">"Dallas"</span>: { <span class="k">"role"</span>: <span class="s">"owner"</span>, <span class="k">"allowed"</span>: <span class="n">true</span> },
+    <span class="k">"RandoGuest"</span>: { <span class="k">"role"</span>: <span class="s">"guest"</span>, <span class="k">"allowed"</span>: <span class="n">false</span> }
+  },
+  <span class="k">"inventorySnapshot"</span>: {
+    <span class="k">"items"</span>: [{ <span class="k">"name"</span>: <span class="s">"oak_log"</span>, <span class="k">"count"</span>: <span class="n">12</span> }],
+    <span class="k">"capturedAt"</span>: <span class="s">"2026-09-15T20:10:02.880Z"</span>
+  }
+}</pre>
+        </div>
+
+        <div class="step">
+          <h2><span class="badge">7</span> DecisionContext <span class="where">llm/contextBuilder.ts</span></h2>
+          <p>
+            World read + the slice of memory the model is allowed to see. Note
+            <code>relevantKnownLocations</code>: locations are keyword-matched against the message, so
+            "wood chest" survives and "base" doesn't.
+          </p>
+<pre>{
+  <span class="k">"triggerMessage"</span>: { <span class="k">"role"</span>: <span class="s">"user"</span>, <span class="k">"username"</span>: <span class="s">"Dallas"</span>, <span class="k">"text"</span>: <span class="s">"go chop some wood"</span>, <span class="k">"at"</span>: <span class="s">"…"</span> },
+  <span class="k">"recentChat"</span>: [ <span class="c">/* conversation from memory */</span> ],
+  <span class="k">"inventory"</span>: [{ <span class="k">"name"</span>: <span class="s">"oak_log"</span>, <span class="k">"count"</span>: <span class="n">12</span> }, { <span class="k">"name"</span>: <span class="s">"stone_axe"</span>, <span class="k">"count"</span>: <span class="n">1</span> }],
+  <span class="k">"nearbyBlockTypes"</span>: [<span class="s">"grass_block"</span>, <span class="s">"dirt"</span>, <span class="s">"oak_log"</span>, <span class="s">"oak_leaves"</span>],
+  <span class="k">"nearbyEntities"</span>: [{ <span class="k">"name"</span>: <span class="s">"Dallas"</span>, <span class="k">"distance"</span>: <span class="n">4.2</span>, <span class="k">"isHostile"</span>: <span class="n">false</span> }],
+  <span class="k">"goal"</span>: { <span class="k">"description"</span>: <span class="s">"keep the wood chest stocked"</span>, <span class="k">"createdAt"</span>: <span class="s">"…"</span> },
+  <span class="k">"activeTask"</span>: { <span class="k">"id"</span>: <span class="s">"t_8f2c"</span>, <span class="k">"description"</span>: <span class="s">"collect 10 oak_log"</span>, <span class="k">"status"</span>: <span class="s">"active"</span>, <span class="k">"createdAt"</span>: <span class="s">"…"</span> },
+  <span class="k">"relevantKnownLocations"</span>: [
+    { <span class="k">"x"</span>: <span class="n">112</span>, <span class="k">"y"</span>: <span class="n">64</span>, <span class="k">"z"</span>: <span class="n">-308</span>, <span class="k">"label"</span>: <span class="s">"wood chest"</span>, <span class="k">"note"</span>: <span class="s">"logs + planks"</span> }
+  ]
+}</pre>
+        </div>
+
+        <div class="step">
+          <h2><span class="badge">8</span> Prompt message <span class="where">contextToMessage()</span></h2>
+          <p>Flattened to plain text, not JSON — this is <code>messages[0]</code> of the tick.</p>
+<pre>{
+  <span class="k">"role"</span>: <span class="s">"user"</span>,
+  <span class="k">"text"</span>: <span class="s">"Chat from Dallas: \"go chop some wood\"</span>
+<span class="s">
+Recent chat: Dallas: where are you? | assistant: By the wood chest. | Dallas: go chop some wood
+Inventory: oak_log x12, stone_axe x1, bread x5
+Nearby blocks: grass_block, dirt, oak_log, oak_leaves
+Nearby entities: Dallas (4.2m), cow (11.6m), zombie (18.7m)
+Current goal: keep the wood chest stocked
+Active task: collect 10 oak_log
+Relevant known locations: wood chest (112, 64, -308)"</span>
+}</pre>
+        </div>
+
+        <h3 class="section">Model turn</h3>
+
+        <div class="step">
+          <h2><span class="badge">9</span> createTurn() request <span class="where">llm/providers/*.ts</span></h2>
+          <p>
+            <code>system</code> and <code>tools[]</code> are identical on every iteration and every
+            tick, which is exactly why both adapters mark them cacheable. <code>tools[]</code> is the
+            skill registry run through <code>toolSchema.ts</code> (filtered to what's relevant).
+          </p>
+<pre>{
+  <span class="k">"system"</span>: <span class="s">"You are a helpful Minecraft companion…"</span>,
+  <span class="k">"messages"</span>: [ { <span class="k">"role"</span>: <span class="s">"user"</span>, <span class="k">"text"</span>: <span class="s">"Chat from Dallas: …"</span> } ],
+  <span class="k">"tools"</span>: [
+    {
+      <span class="k">"name"</span>: <span class="s">"collectBlock"</span>,
+      <span class="k">"description"</span>: <span class="s">"Mine and pick up the nearest blocks of a given type, up to a target count."</span>,
+      <span class="k">"jsonSchema"</span>: {
+        <span class="k">"type"</span>: <span class="s">"object"</span>,
+        <span class="k">"properties"</span>: {
+          <span class="k">"blockName"</span>: { <span class="k">"type"</span>: <span class="s">"string"</span>, <span class="k">"description"</span>: <span class="s">"Block id, e.g. \"oak_log\", \"stone\", \"iron_ore\""</span> },
+          <span class="k">"count"</span>: { <span class="k">"type"</span>: <span class="s">"integer"</span>, <span class="k">"minimum"</span>: <span class="n">1</span>, <span class="k">"maximum"</span>: <span class="n">64</span>, <span class="k">"default"</span>: <span class="n">1</span> }
+        },
+        <span class="k">"required"</span>: [<span class="s">"blockName"</span>],
+        <span class="k">"additionalProperties"</span>: <span class="n">false</span>
+      }
+    }
+    <span class="c">/* … goToPlayer, craftItem, attackNearest, chestTransfer, … */</span>
+  ]
+}</pre>
+        </div>
+
+        <div class="step">
+          <h2><span class="badge">10</span> NormalizedResponse <span class="where">llm/types.ts</span></h2>
+          <p>
+            Both providers return this same shape. <code>argsRaw</code> is always a JSON
+            <em>string</em> — the Anthropic adapter re-stringifies its already-parsed
+            <code>input</code> so the loop never has to branch on provider.
+          </p>
+<pre>{
+  <span class="k">"stopReason"</span>: <span class="s">"tool_calls"</span>,
+  <span class="k">"text"</span>: <span class="n">null</span>,
+  <span class="k">"toolCalls"</span>: [
+    { <span class="k">"id"</span>: <span class="s">"toolu_01A9cD"</span>, <span class="k">"name"</span>: <span class="s">"collectBlock"</span>, <span class="k">"argsRaw"</span>: <span class="s">"{\"blockName\":\"oak_log\",\"count\":10}"</span> }
+  ],
+  <span class="k">"raw"</span>: <span class="s">"&lt;provider response, kept for logging only&gt;"</span>
+}</pre>
+        </div>
+
+        <div class="step">
+          <h2><span class="badge">11</span> Args validation <span class="where">zod safeParse + repair.ts</span></h2>
+          <p>
+            Parse → validate against the skill's own schema. On failure the model gets one repair
+            round-trip carrying the zod error; still bad and the tool result becomes an error the
+            model can read. Repeated failures bump the model tier via <code>modelRouter.ts</code>.
+          </p>
+<pre><span class="c">// success</span>
+{ <span class="k">"blockName"</span>: <span class="s">"oak_log"</span>, <span class="k">"count"</span>: <span class="n">10</span> }
+
+<span class="c">// failure path, what repair sends back to the model</span>
+{
+  <span class="k">"failedCall"</span>: { <span class="k">"name"</span>: <span class="s">"collectBlock"</span>, <span class="k">"argsRaw"</span>: <span class="s">"{\"block\":\"oak\"}"</span> },
+  <span class="k">"validationError"</span>: <span class="s">"Unrecognized key: \"block\"; Required: blockName"</span>
+}</pre>
+        </div>
+
+        <h3 class="section">Action</h3>
+
+        <div class="step">
+          <h2><span class="badge">12</span> SkillResult <span class="where">skills/gathering.ts</span></h2>
+          <p>
+            Runs under <code>withTimeout(skill.timeoutMs, tickSignal)</code> — 120&nbsp;s for
+            <code>collectBlock</code>. The skill reacts to the abort signal itself
+            (<code>bot.collectBlock.cancelTask()</code>); the race is handled centrally.
+          </p>
+<pre>{ <span class="k">"ok"</span>: <span class="n">true</span>, <span class="k">"message"</span>: <span class="s">"Collected 10x oak_log."</span> }
+
+<span class="c">// failure shape</span>
+{ <span class="k">"ok"</span>: <span class="n">false</span>, <span class="k">"message"</span>: <span class="s">"Couldn't find any \"oak_log\" nearby."</span> }</pre>
+        </div>
+
+        <div class="step">
+          <h2><span class="badge">13</span> Tool result → messages[] <span class="where">the loop's only growing state</span></h2>
+          <p>
+            Pushed as a <code>role: "tool"</code> message, then the provider is called again with the
+            longer <code>messages[]</code>. This is the loop: it repeats until the model stops asking
+            for tools or the iteration cap is hit.
+          </p>
+<pre>[
+  { <span class="k">"role"</span>: <span class="s">"user"</span>,      <span class="k">"text"</span>: <span class="s">"Chat from Dallas: …"</span> },
+  { <span class="k">"role"</span>: <span class="s">"assistant"</span>, <span class="k">"toolCalls"</span>: [{ <span class="k">"id"</span>: <span class="s">"toolu_01A9cD"</span>, <span class="k">"name"</span>: <span class="s">"collectBlock"</span>, <span class="k">"argsRaw"</span>: <span class="s">"{…}"</span> }] },
+  { <span class="k">"role"</span>: <span class="s">"tool"</span>,      <span class="k">"toolResults"</span>: [{ <span class="k">"toolCallId"</span>: <span class="s">"toolu_01A9cD"</span>, <span class="k">"content"</span>: <span class="s">"Collected 10x oak_log."</span>, <span class="k">"isError"</span>: <span class="n">false</span> }] }
+  <span class="c">// → next iteration sends all three back, plus the same system + tools</span>
+]</pre>
+        </div>
+
+        <h3 class="section">Reply</h3>
+
+        <div class="step">
+          <h2><span class="badge">14</span> Final turn <span class="where">stopReason: "end"</span></h2>
+          <p>No tool calls this time, so the loop exits with the model's text as the reply.</p>
+<pre>{
+  <span class="k">"stopReason"</span>: <span class="s">"end"</span>,
+  <span class="k">"toolCalls"</span>: [],
+  <span class="k">"text"</span>: <span class="s">"Collected 10x oak_log. Want me to drop them in the wood chest?"</span>
+}</pre>
+        </div>
+
+        <div class="step">
+          <h2><span class="badge">15</span> Chat reply + write-back <span class="where">chat/format.ts → memory</span></h2>
+          <p>
+            Chunked to 240 characters on word boundaries (Minecraft truncates long lines), sent, and
+            echoed back into <code>conversation</code> so the next tick sees what the bot said.
+          </p>
+<pre><span class="c">// chunkChatMessage(replyText, 240)</span>
+[<span class="s">"Collected 10x oak_log. Want me to drop them in the wood chest?"</span>]
+
+<span class="c">// appended to memory</span>
+{ <span class="k">"role"</span>: <span class="s">"assistant"</span>, <span class="k">"text"</span>: <span class="s">"Collected 10x oak_log. Want me to drop them in the wood chest?"</span>, <span class="k">"at"</span>: <span class="s">"2026-09-15T20:11:41.905Z"</span> }</pre>
+        </div>
+
+        <h3 class="section">What survives</h3>
+
+        <div class="step">
+          <h2>Persisted vs. rebuilt</h2>
+          <p>
+            Only the left column is on disk. Everything else is rebuilt from the live bot on the next
+            tick — which is why a reconnect creates a new <code>Bot</code> and a new
+            <code>ChatRouter</code> but keeps goals, tasks and known locations.
+          </p>
+<pre><span class="c">// state.&lt;realmId&gt;.json  — survives restarts and reconnects</span>
+conversation · goal · taskQueue · knownLocations · playerPermissions · inventorySnapshot
+
+<span class="c">// per tick, in memory only</span>
+DecisionContext · prompt message · messages[] · toolCalls · SkillResult · tool results
+
+<span class="c">// per process, in memory only</span>
+AbortController (current tick) · per-user cooldown timestamps · system prompt · tool specs</pre>
+        </div>
+      </main>
+    </div>
+  </body>
+</html>
