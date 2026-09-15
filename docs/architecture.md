@@ -12,38 +12,27 @@
 ## Squinch diagram
 
 A [Squinch](https://github.com/jquatier/squinch) model of the same architecture lives at
-[`diagrams/architecture.squinch`](diagrams/architecture.squinch), with a landscape view, a
-full-detail view of the `src/` module map, and a flow view for the chat-command interaction.
-Open [`diagrams/architecture.html`](diagrams/architecture.html) for the interactive version
-(click to zoom into `bot`, switch light/dark), or view the individual SVGs:
+[`diagrams/architecture/architecture.squinch`](diagrams/architecture/architecture.squinch), with a
+landscape view, a full-detail view of the `src/` module map, and a flow view for the chat-command
+interaction. The landscape view is below; open
+[`diagrams/architecture/architecture.html`](diagrams/architecture/architecture.html) for the
+interactive version with all three (click to zoom into `bot`, switch light/dark).
 
-<picture>
-  <source media="(prefers-color-scheme: dark)" srcset="diagrams/architecture.landscape.dark.svg">
-  <img alt="landscape" src="diagrams/architecture.landscape.light.svg">
-</picture>
-<picture>
-  <source media="(prefers-color-scheme: dark)" srcset="diagrams/architecture.full.dark.svg">
-  <img alt="full" src="diagrams/architecture.full.light.svg">
-</picture>
-<picture>
-  <source media="(prefers-color-scheme: dark)" srcset="diagrams/architecture.bot.dark.svg">
-  <img alt="bot" src="diagrams/architecture.bot.light.svg">
-</picture>
+![landscape](diagrams/architecture/architecture.svg)
 
 ## Data flow — what actually moves
 
-The diagrams above are structure. [`diagrams/dataflow.squinch`](diagrams/dataflow.squinch) models
-one decision tick as *data*: the numbered hops from chat packet to chat reply. Open
-[`diagrams/dataflow-payloads.html`](diagrams/dataflow-payloads.html) to see the diagram beside the
-real payload at every hop — the `ChatTurn`, the world read, the on-disk `BotState`, the
-`DecisionContext`, the flattened prompt, `toolCalls[].argsRaw`, the `SkillResult`, and the growing
-`messages[]` — or [`diagrams/dataflow.html`](diagrams/dataflow.html) for the interactive/step-through
-version.
+The diagrams above are structure.
+[`diagrams/data-flow/data-flow.squinch`](diagrams/data-flow/data-flow.squinch) models one decision
+tick as *data*: the numbered hops from chat packet to chat reply. Open
+[`diagrams/data-flow/data-flow-payloads.html`](diagrams/data-flow/data-flow-payloads.html) to see
+the diagram beside the real payload at every hop — the `ChatTurn`, the world read, the on-disk
+`BotState`, the `DecisionContext`, the flattened prompt, `toolCalls[].argsRaw`, the `SkillResult`,
+and the growing `messages[]` — or
+[`diagrams/data-flow/data-flow.html`](diagrams/data-flow/data-flow.html) for the
+interactive/step-through version.
 
-<picture>
-  <source media="(prefers-color-scheme: dark)" srcset="diagrams/dataflow.tick.dark.svg">
-  <img alt="decision tick data flow" src="diagrams/dataflow.tick.light.svg">
-</picture>
+![decision tick data flow](diagrams/data-flow/data-flow.svg)
 
 ## Component diagram
 

@@ -1,6 +1,6 @@
 // One decision tick, end to end — what data moves between the pieces.
-// Companion to architecture.squinch: that one is the module map, this one is the payloads.
-// The worked JSON for every hop lives in ../data-flow.md and diagrams/dataflow.html.
+// Companion to architecture/architecture.squinch: that one is the module map, this one is the payloads.
+// The worked JSON for every hop lives in data-flow-payloads.html.
 
 person you "You"
 realm = sys/server "Your Realm" external { subtitle: "Minecraft realm" }
