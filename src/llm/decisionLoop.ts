@@ -10,6 +10,7 @@ import { withTimeout } from '../util/abortable.js';
 import { assembleDecisionContext, contextToMessage } from './contextBuilder.js';
 import { chooseModelTier } from './modelRouter.js';
 import { requestRepair } from './repair.js';
+import { filterRelevantSkills } from './skillFilter.js';
 import { buildToolSpecs } from './toolSchema.js';
 import type { LLMProvider, NormalizedMessage, NormalizedToolResult } from './types.js';
 
@@ -51,10 +52,9 @@ export async function runDecisionTick(params: DecisionTickParams): Promise<{ rep
 
   say('On it — working on that now.');
 
-  const tools = buildToolSpecs(registry);
-  const messages: NormalizedMessage[] = [
-    contextToMessage(assembleDecisionContext(bot, memory, triggerMessage)),
-  ];
+  const decisionContext = assembleDecisionContext(bot, memory, triggerMessage);
+  const tools = buildToolSpecs(filterRelevantSkills(decisionContext, registry));
+  const messages: NormalizedMessage[] = [contextToMessage(decisionContext)];
 
   let consecutiveRepairFailures = 0;
 

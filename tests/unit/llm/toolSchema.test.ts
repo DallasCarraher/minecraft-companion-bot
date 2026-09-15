@@ -6,7 +6,7 @@ import { buildToolSpecs } from '../../../src/llm/toolSchema.js';
 describe('buildToolSpecs', () => {
   const registry = new SkillRegistry();
   registerAllSkills(registry);
-  const specs = buildToolSpecs(registry);
+  const specs = buildToolSpecs(registry.list());
 
   it('produces one spec per registered skill', () => {
     expect(specs.length).toBe(registry.list().length);

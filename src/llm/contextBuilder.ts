@@ -13,7 +13,7 @@ export interface DecisionContext {
   recentChat: ChatTurn[];
   inventory: { name: string; count: number }[];
   nearbyBlockTypes: string[];
-  nearbyEntities: { name: string; distance: number }[];
+  nearbyEntities: { name: string; distance: number; isHostile: boolean }[];
   goal: { description: string; createdAt: string } | null;
   activeTask: TaskQueueItem | null;
   relevantKnownLocations: KnownLocation[];
@@ -51,6 +51,7 @@ export function assembleDecisionContext(
     .map((entity) => ({
       name: entity.username ?? entity.name ?? entity.type,
       distance: entity.position.distanceTo(bot.entity.position),
+      isHostile: entity.type === 'hostile',
     }))
     .toSorted((a, b) => a.distance - b.distance)
     .slice(0, NEARBY_ENTITY_LIMIT);
