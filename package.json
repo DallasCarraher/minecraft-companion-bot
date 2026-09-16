@@ -29,6 +29,7 @@
     "mineflayer-tool": "^1.2.0",
     "openai": "^7.15.0",
     "pino": "^10.3.1",
+    "prismarine-chunk": "file:.yalc/prismarine-chunk",
     "prismarine-physics": "file:.yalc/prismarine-physics",
     "vec3": "^0.1.7",
     "zod": "^4.6.4"
@@ -46,6 +47,7 @@
     "minecraft-data": "file:.yalc/minecraft-data",
     "minecraft-protocol": "file:.yalc/minecraft-protocol",
     "mineflayer": "file:.yalc/mineflayer",
+    "prismarine-chunk": "file:.yalc/prismarine-chunk",
     "prismarine-physics": "file:.yalc/prismarine-physics"
   },
   "packageManager": "bun@1.4.2"
