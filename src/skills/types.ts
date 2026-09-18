@@ -33,9 +33,17 @@ export interface SkillResult {
  * `decisionLoop.ts` via `util/abortable.ts` — skills only need to react to the signal, not
  * implement the race.
  */
+/**
+ * Groups skills for `llm/skillFilter.ts`'s per-category filtering rules. Hardcoded rather than a
+ * manifest since categories map 1:1 onto the existing skill files; revisit only once the registry
+ * is large enough (30-40+ skills) or categories need to be runtime-configurable.
+ */
+export type SkillCategory = 'gathering' | 'crafting' | 'combat' | 'movement' | 'building' | 'info';
+
 export interface Skill<Args = unknown> {
   name: string;
   description: string;
+  category: SkillCategory;
   argsSchema: z.ZodType<Args>;
   timeoutMs: number;
   run(ctx: SkillContext, args: Args): Promise<SkillResult>;

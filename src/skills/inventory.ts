@@ -5,6 +5,7 @@ import { defineSkill } from './types.js';
 
 export const equipArmor = defineSkill({
   name: 'equipArmor',
+  category: 'info',
   description: "Equip the best available armor pieces from the bot's inventory.",
   argsSchema: z.object({}).strict(),
   timeoutMs: 15_000,
@@ -16,6 +17,7 @@ export const equipArmor = defineSkill({
 
 export const dropJunk = defineSkill({
   name: 'dropJunk',
+  category: 'info',
   description: 'Drop all inventory items matching the given item names.',
   argsSchema: z
     .object({
@@ -57,6 +59,7 @@ async function openChestAt(
 
 export const chestTransfer = defineSkill({
   name: 'chestTransfer',
+  category: 'info',
   description: 'Open a chest at the given position and deposit or withdraw an item.',
   argsSchema: z
     .object({

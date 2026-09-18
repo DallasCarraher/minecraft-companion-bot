@@ -15,6 +15,7 @@ const { goals } = pathfinderPkg;
  */
 export const buildStructure = defineSkill({
   name: 'buildStructure',
+  category: 'building',
   description:
     'Build a simple flat wall or floor out of one block type, starting at a given position.',
   argsSchema: z

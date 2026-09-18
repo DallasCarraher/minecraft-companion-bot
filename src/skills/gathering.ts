@@ -4,6 +4,7 @@ import type { Block } from 'prismarine-block';
 
 export const collectBlock = defineSkill({
   name: 'collectBlock',
+  category: 'gathering',
   description: 'Mine and pick up the nearest blocks of a given type, up to a target count.',
   argsSchema: z
     .object({
@@ -46,6 +47,7 @@ export const collectBlock = defineSkill({
 
 export const equipBestTool = defineSkill({
   name: 'equipBestTool',
+  category: 'gathering',
   description: 'Equip the best available tool in inventory for harvesting a given block type.',
   argsSchema: z.object({ blockName: z.string().min(1) }).strict(),
   timeoutMs: 10_000,
