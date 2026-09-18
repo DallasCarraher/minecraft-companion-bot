@@ -10,6 +10,9 @@ export const TOOL_REPAIR_RETRY_LIMIT = 1;
 /** Debounce window for persisting memory to disk after an update. */
 export const MEMORY_WRITE_DEBOUNCE_MS = 500;
 
+/** Debounce window for flushing buffered decision-tick training data to disk. */
+export const DATA_COLLECTION_FLUSH_DEBOUNCE_MS = 2000;
+
 /** Reconnect backoff bounds. */
 export const RECONNECT_BACKOFF_INITIAL_MS = 2000;
 export const RECONNECT_BACKOFF_MAX_MS = 60000;
