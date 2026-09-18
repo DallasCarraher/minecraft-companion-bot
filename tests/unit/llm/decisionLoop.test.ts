@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { z } from 'zod';
 import pino from 'pino';
 import { runDecisionTick } from '../../../src/llm/decisionLoop.js';
+import { DataCollector } from '../../../src/learning/dataCollector.js';
 import { SkillRegistry } from '../../../src/skills/registry.js';
 import type { Skill } from '../../../src/skills/types.js';
 import { MemoryStore } from '../../../src/memory/store.js';
@@ -56,6 +57,7 @@ function baseParams(overrides: Partial<Parameters<typeof runDecisionTick>[0]> = 
     }),
     registry,
     provider: new FakeLLMProvider([]),
+    dataCollector: new DataCollector(dataDir, false, silentLogger),
     triggerMessage: {
       role: 'user' as const,
       username: 'Alice',

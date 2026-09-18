@@ -1,5 +1,6 @@
 import type { Bot } from 'mineflayer';
 import type { AppConfig } from '../config/env.js';
+import type { DataCollector } from '../learning/dataCollector.js';
 import type { Logger } from '../logger/logger.js';
 import type { MemoryStore } from '../memory/store.js';
 import type { LLMProvider } from '../llm/types.js';
@@ -17,6 +18,7 @@ export interface ChatRouterDeps {
   registry: SkillRegistry;
   config: AppConfig;
   logger: Logger;
+  dataCollector: DataCollector;
 }
 
 /**
@@ -92,6 +94,7 @@ export class ChatRouter {
         registry: this.deps.registry,
         provider: this.deps.provider,
         escalationProvider: this.deps.escalationProvider,
+        dataCollector: this.deps.dataCollector,
         triggerMessage: {
           role: 'user',
           username,

@@ -1,6 +1,8 @@
 import type { Bot } from 'mineflayer';
 import type { AppConfig } from '../config/env.js';
 import { TOOL_REPAIR_RETRY_LIMIT } from '../config/constants.js';
+import type { DataCollector } from '../learning/dataCollector.js';
+import { buildDecisionTickData } from '../learning/dataCollector.js';
 import type { Logger } from '../logger/logger.js';
 import type { MemoryStore } from '../memory/store.js';
 import type { ChatTurn } from '../memory/types.js';
@@ -22,6 +24,7 @@ export interface DecisionTickParams {
   registry: SkillRegistry;
   provider: LLMProvider;
   escalationProvider?: LLMProvider;
+  dataCollector: DataCollector;
   triggerMessage: ChatTurn;
   systemPrompt: string;
   /** Tick-level cancellation: user said "stop", a new tick preempted this one, or the bot disconnected. */
@@ -47,14 +50,26 @@ function safeParseJson(raw: string): unknown {
  * identically regardless of which provider(s) are configured.
  */
 export async function runDecisionTick(params: DecisionTickParams): Promise<{ replyText: string }> {
-  const { bot, logger, memory, config, registry, systemPrompt, triggerMessage, signal, say } =
-    params;
+  const {
+    bot,
+    logger,
+    memory,
+    config,
+    registry,
+    systemPrompt,
+    triggerMessage,
+    signal,
+    say,
+    dataCollector,
+  } = params;
 
   say('On it — working on that now.');
 
+  const tickId = crypto.randomUUID();
   const decisionContext = assembleDecisionContext(bot, memory, triggerMessage);
   const tools = buildToolSpecs(filterRelevantSkills(decisionContext, registry));
   const messages: NormalizedMessage[] = [contextToMessage(decisionContext)];
+  const previousSkills: { name: string; ok: boolean }[] = [];
 
   let consecutiveRepairFailures = 0;
 
@@ -120,6 +135,7 @@ export async function runDecisionTick(params: DecisionTickParams): Promise<{ rep
       consecutiveRepairFailures = 0;
 
       const skillCtx: Omit<SkillContext, 'signal'> = { bot, logger, memory, config, say };
+      const startedAt = Date.now();
 
       try {
         const result = await withTimeout(
@@ -128,12 +144,37 @@ export async function runDecisionTick(params: DecisionTickParams): Promise<{ rep
           signal,
         );
         toolResults.push({ toolCallId: call.id, content: result.message, isError: !result.ok });
+        if (dataCollector.isEnabled) {
+          dataCollector.recordDecisionTick(
+            buildDecisionTickData(
+              bot,
+              tickId,
+              decisionContext,
+              previousSkills,
+              { skillName: skill.name, args: validated.data as Record<string, unknown> },
+              result,
+              Date.now() - startedAt,
+            ),
+          );
+        }
+        previousSkills.push({ name: skill.name, ok: result.ok });
       } catch (err) {
-        toolResults.push({
-          toolCallId: call.id,
-          content: err instanceof Error ? err.message : String(err),
-          isError: true,
-        });
+        const message = err instanceof Error ? err.message : String(err);
+        toolResults.push({ toolCallId: call.id, content: message, isError: true });
+        if (dataCollector.isEnabled) {
+          dataCollector.recordDecisionTick(
+            buildDecisionTickData(
+              bot,
+              tickId,
+              decisionContext,
+              previousSkills,
+              { skillName: skill.name, args: validated.data as Record<string, unknown> },
+              { ok: false, message },
+              Date.now() - startedAt,
+            ),
+          );
+        }
+        previousSkills.push({ name: skill.name, ok: false });
       }
     }
 
