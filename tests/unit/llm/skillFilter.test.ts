@@ -31,7 +31,7 @@ describe('filterRelevantSkills', () => {
       nearbyEntities: [{ name: 'zombie', distance: 5, isHostile: true }],
     });
 
-    const names = skillNames(filterRelevantSkills(context, registry));
+    const names = skillNames(filterRelevantSkills(context, registry).skills);
 
     expect(names).toContain('attackNearest');
     expect(names).toContain('stopCombat');
@@ -43,21 +43,46 @@ describe('filterRelevantSkills', () => {
       nearbyEntities: [{ name: 'Alex', distance: 5, isHostile: false }],
     });
 
-    const names = skillNames(filterRelevantSkills(context, registry));
+    const { skills, hidden } = filterRelevantSkills(context, registry);
+    const names = skillNames(skills);
 
     expect(names).not.toContain('attackNearest');
     expect(names).not.toContain('stopCombat');
     expect(names).not.toContain('fleeFrom');
+    expect(hidden).toContainEqual({ name: 'attackNearest', reason: 'no hostile entity nearby' });
   });
 
-  it('includes crafting/building skills when there is an active goal', () => {
+  it('includes crafting skills when there is an active goal and inventory to craft with', () => {
+    const context = makeContext({
+      goal: { description: 'build a house', createdAt: new Date().toISOString() },
+      inventory: [{ name: 'oak_log', count: 4 }],
+    });
+
+    const names = skillNames(filterRelevantSkills(context, registry).skills);
+
+    expect(names).toContain('craftItem');
+  });
+
+  it('excludes crafting skills when there is a goal but no inventory', () => {
+    const context = makeContext({
+      goal: { description: 'build a house', createdAt: new Date().toISOString() },
+      inventory: [],
+    });
+
+    const { skills, hidden } = filterRelevantSkills(context, registry);
+    const names = skillNames(skills);
+
+    expect(names).not.toContain('craftItem');
+    expect(hidden).toContainEqual({ name: 'craftItem', reason: 'inventory is empty' });
+  });
+
+  it('includes building skills when there is an active goal, regardless of inventory', () => {
     const context = makeContext({
       goal: { description: 'build a house', createdAt: new Date().toISOString() },
     });
 
-    const names = skillNames(filterRelevantSkills(context, registry));
+    const names = skillNames(filterRelevantSkills(context, registry).skills);
 
-    expect(names).toContain('craftItem');
     expect(names).toContain('buildStructure');
   });
 
@@ -69,29 +94,46 @@ describe('filterRelevantSkills', () => {
         status: 'active',
         createdAt: new Date().toISOString(),
       },
+      inventory: [{ name: 'stick', count: 2 }],
     });
 
-    const names = skillNames(filterRelevantSkills(context, registry));
+    const names = skillNames(filterRelevantSkills(context, registry).skills);
 
     expect(names).toContain('craftItem');
     expect(names).toContain('buildStructure');
   });
 
   it('excludes crafting/building skills when there is no goal or active task', () => {
-    const names = skillNames(filterRelevantSkills(makeContext(), registry));
+    const { skills, hidden } = filterRelevantSkills(makeContext(), registry);
+    const names = skillNames(skills);
 
     expect(names).not.toContain('craftItem');
     expect(names).not.toContain('buildStructure');
+    expect(hidden).toContainEqual({ name: 'craftItem', reason: 'no active goal or task' });
+    expect(hidden).toContainEqual({ name: 'buildStructure', reason: 'no active goal or task' });
   });
 
-  it('always includes movement, gathering, and inventory skills regardless of context', () => {
-    const names = skillNames(filterRelevantSkills(makeContext(), registry));
+  it('includes gathering skills only when blocks are nearby', () => {
+    const withBlocks = filterRelevantSkills(
+      makeContext({ nearbyBlockTypes: ['oak_log'] }),
+      registry,
+    );
+    expect(skillNames(withBlocks.skills)).toContain('collectBlock');
+
+    const withoutBlocks = filterRelevantSkills(makeContext({ nearbyBlockTypes: [] }), registry);
+    expect(skillNames(withoutBlocks.skills)).not.toContain('collectBlock');
+    expect(withoutBlocks.hidden).toContainEqual({
+      name: 'collectBlock',
+      reason: 'no blocks nearby',
+    });
+  });
+
+  it('always includes movement and info skills regardless of context', () => {
+    const names = skillNames(filterRelevantSkills(makeContext(), registry).skills);
 
     for (const alwaysOn of [
       'goToPlayer',
       'followPlayer',
-      'collectBlock',
-      'equipBestTool',
       'equipArmor',
       'dropJunk',
       'chestTransfer',
@@ -101,7 +143,7 @@ describe('filterRelevantSkills', () => {
   });
 
   it('never returns an empty list, even in a maximally filtered context', () => {
-    const skills = filterRelevantSkills(makeContext(), registry);
+    const { skills } = filterRelevantSkills(makeContext(), registry);
 
     expect(skills.length).toBeGreaterThan(0);
   });
@@ -110,11 +152,12 @@ describe('filterRelevantSkills', () => {
     const emptyRegistry = new SkillRegistry();
     emptyRegistry.register(registry.get('attackNearest')!);
 
-    const skills = filterRelevantSkills(makeContext(), emptyRegistry);
+    const { skills, hidden } = filterRelevantSkills(makeContext(), emptyRegistry);
 
     // attackNearest would normally be excluded (no hostiles), but it's the only registered
     // skill, so the safe fallback kicks in rather than sending zero tools.
     expect(skills.length).toBe(1);
     expect(skills[0]?.name).toBe('attackNearest');
+    expect(hidden).toEqual([]);
   });
 });

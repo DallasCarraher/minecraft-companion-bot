@@ -53,7 +53,11 @@ export async function runDecisionTick(params: DecisionTickParams): Promise<{ rep
   say('On it — working on that now.');
 
   const decisionContext = assembleDecisionContext(bot, memory, triggerMessage);
-  const tools = buildToolSpecs(filterRelevantSkills(decisionContext, registry));
+  const { skills: relevantSkills, hidden } = filterRelevantSkills(decisionContext, registry);
+  if (hidden.length > 0) {
+    logger.debug({ hidden }, 'skills hidden from this decision tick');
+  }
+  const tools = buildToolSpecs(relevantSkills);
   const messages: NormalizedMessage[] = [contextToMessage(decisionContext)];
 
   let consecutiveRepairFailures = 0;

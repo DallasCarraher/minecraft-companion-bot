@@ -3,6 +3,7 @@ import { defineSkill } from './types.js';
 
 export const attackNearest = defineSkill({
   name: 'attackNearest',
+  category: 'combat',
   description: 'Attack the nearest hostile mob, or a specific mob/player if named.',
   argsSchema: z
     .object({
@@ -42,6 +43,7 @@ export const attackNearest = defineSkill({
 
 export const stopCombat = defineSkill({
   name: 'stopCombat',
+  category: 'combat',
   description: 'Stop the current attack, if any.',
   argsSchema: z.object({}).strict(),
   timeoutMs: 5_000,

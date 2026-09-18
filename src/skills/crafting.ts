@@ -11,6 +11,7 @@ import { defineSkill } from './types.js';
  */
 export const craftItem = defineSkill({
   name: 'craftItem',
+  category: 'crafting',
   description:
     'Craft an item, placing a crafting table nearby from inventory if one is required and not already in reach.',
   argsSchema: z

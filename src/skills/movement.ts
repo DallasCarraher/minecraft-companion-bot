@@ -15,6 +15,7 @@ function findPlayerEntity(bot: Bot, username: string) {
 
 export const goToPlayer = defineSkill({
   name: 'goToPlayer',
+  category: 'movement',
   description: "Path to within a short distance of the given player's current position.",
   argsSchema: z
     .object({
@@ -46,6 +47,7 @@ export const goToPlayer = defineSkill({
 
 export const followPlayer = defineSkill({
   name: 'followPlayer',
+  category: 'movement',
   description: 'Continuously follow a player until told to stop or given a new goal.',
   argsSchema: z
     .object({
@@ -76,6 +78,10 @@ export const followPlayer = defineSkill({
 
 export const fleeFrom = defineSkill({
   name: 'fleeFrom',
+  // Escaping danger pairs with the other combat-context skills for filtering purposes, even
+  // though the mechanism (pathfinder) is movement — only relevant when something threatening
+  // is actually nearby, same gate as attackNearest/stopCombat.
+  category: 'combat',
   description: 'Run away from a nearby player or mob until a safe distance away.',
   argsSchema: z
     .object({
