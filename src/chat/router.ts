@@ -18,6 +18,8 @@ export interface ChatRouterDeps {
   registry: SkillRegistry;
   config: AppConfig;
   logger: Logger;
+  /** Invoked whenever active work is cancelled (e.g. "stop"), so background reflexes stand down too. */
+  onCancel?: () => void;
 }
 
 /**
@@ -52,6 +54,7 @@ export class ChatRouter {
   /** Cancels the in-flight decision tick's skill execution, if any. */
   cancelActive(): void {
     this.activeController?.abort();
+    this.deps.onCancel?.();
   }
 
   private async handleChat(username: string, message: string, viaWhisper: boolean): Promise<void> {

@@ -16,6 +16,8 @@ import { BotStateSchema, createDefaultState, type BotState, type ChatTurn } from
  */
 export class MemoryStore {
   private readonly debouncedPersist: Debounced<[]>;
+  /** Tail of the write queue; writes share one `.tmp` path, so they must never overlap. */
+  private writeQueue: Promise<void> = Promise.resolve();
 
   private constructor(
     private state: BotState,
@@ -79,7 +81,13 @@ export class MemoryStore {
     await this.persistNow();
   }
 
-  private async persistNow(): Promise<void> {
+  private persistNow(): Promise<void> {
+    const write = this.writeQueue.then(() => this.writeToDisk());
+    this.writeQueue = write.catch(() => {});
+    return write;
+  }
+
+  private async writeToDisk(): Promise<void> {
     const tmpPath = `${this.filePath}.tmp`;
     await fs.writeFile(tmpPath, JSON.stringify(this.state, null, 2), 'utf8');
     await fs.rename(tmpPath, this.filePath);

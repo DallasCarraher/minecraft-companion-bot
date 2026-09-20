@@ -22,6 +22,7 @@ beforeEach(async () => {
 });
 
 afterEach(async () => {
+  await memory.flush(); // settle any debounced write before its directory disappears
   await fs.rm(dataDir, { recursive: true, force: true });
 });
 

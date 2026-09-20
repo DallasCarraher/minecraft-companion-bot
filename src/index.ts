@@ -6,6 +6,7 @@ import { SkillRegistry, registerAllSkills } from './skills/index.js';
 import { createLLMProvider, createEscalationProvider } from './llm/providers/factory.js';
 import { MemoryStore } from './memory/store.js';
 import { ChatRouter } from './chat/router.js';
+import { Reflexes } from './mineflayer/reflexes.js';
 
 async function main() {
   const config = loadConfig();
@@ -38,6 +39,8 @@ async function main() {
   );
 
   supervisor.start((bot) => {
+    const reflexes = new Reflexes(bot, logger);
+    reflexes.attach();
     const router = new ChatRouter({
       bot,
       memory,
@@ -46,6 +49,7 @@ async function main() {
       registry,
       config,
       logger,
+      onCancel: () => reflexes.cancel(),
     });
     router.attach();
     activeRouter = router;

@@ -4,7 +4,7 @@ import { collectBlock, equipBestTool } from './gathering.js';
 import { attackNearest, stopCombat } from './combat.js';
 import { craftItem } from './crafting.js';
 import { buildStructure } from './building.js';
-import { equipArmor, dropJunk, chestTransfer } from './inventory.js';
+import { equipArmor, eatFood, dropJunk, chestTransfer } from './inventory.js';
 import type { Skill } from './types.js';
 
 export function registerAllSkills(registry: SkillRegistry): void {
@@ -19,6 +19,7 @@ export function registerAllSkills(registry: SkillRegistry): void {
     craftItem,
     buildStructure,
     equipArmor,
+    eatFood,
     dropJunk,
     chestTransfer,
   ];
