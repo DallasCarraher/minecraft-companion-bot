@@ -82,6 +82,7 @@ describe('Reflexes', () => {
   function setup(
     zombie: Record<string, unknown>,
     items = inv('cooked_porkchop', 'iron_axe', 'iron_sword'),
+    overrides: Record<string, unknown> = {},
   ) {
     const equipped: string[] = [];
     const entities: Record<number, unknown> = { 7: zombie };
@@ -106,6 +107,8 @@ describe('Reflexes', () => {
       lookAt: async () => {},
       activateItem,
       deactivateItem,
+      registry: { foodsByName },
+      ...overrides,
       nearestEntity: (f: (e: unknown) => boolean) => (f(zombie) ? zombie : null),
     });
     const reflexes = new Reflexes(bot, logger);
@@ -205,6 +208,35 @@ describe('Reflexes', () => {
     bot.emit('goal_updated' as never, { entity: owner } as never, true as never);
     hurt();
     expect(pvp.attack).not.toHaveBeenCalled();
+    reflexes.detach();
+  });
+
+  it('asks for food in chat when hungry with nothing edible, without spamming', async () => {
+    const chat = vi.fn<(m: string) => void>();
+    const { bot, reflexes } = setup(mob('zombie', 30), inv('iron_sword', 'dirt'), {
+      food: 8,
+      chat,
+    });
+    bot.emit('health');
+    await waitUntil(() => expect(chat).toHaveBeenCalledTimes(1));
+    expect(chat.mock.calls[0]![0]).toContain('hungry');
+    bot.emit('health');
+    bot.emit('health');
+    await new Promise((r) => setTimeout(r, 50));
+    expect(chat).toHaveBeenCalledTimes(1);
+    reflexes.detach();
+  });
+
+  it('does not ask for food when it has some', async () => {
+    const chat = vi.fn<(m: string) => void>();
+    const { bot, reflexes } = setup(mob('zombie', 30), inv('bread'), {
+      food: 8,
+      chat,
+      consume: async () => {},
+    });
+    bot.emit('health');
+    await new Promise((r) => setTimeout(r, 50));
+    expect(chat).not.toHaveBeenCalled();
     reflexes.detach();
   });
 });

@@ -5,6 +5,8 @@ import { bestMelee, findBow, hasArrows } from './weapons.js';
 
 const EAT_BELOW_FOOD = 14;
 const EMERGENCY_FOOD = 6;
+const FOOD_ALERT_COOLDOWN_MS = 180_000;
+const URGENT_FOOD_ALERT_COOLDOWN_MS = 60_000;
 const DEFEND_RADIUS = 6;
 const CHECK_INTERVAL_MS = 1_000;
 /** Never provoke these at all. */
@@ -34,6 +36,7 @@ type PathGoal = NonNullable<Bot['pathfinder']['goal']>;
  */
 export class Reflexes {
   private eating = false;
+  private lastFoodAlertAt = 0;
   private fighting = false;
   private fightId = 0;
   private userGoal: { goal: PathGoal; dynamic: boolean } | null = null;
@@ -234,11 +237,30 @@ export class Reflexes {
     this.eating = true;
     try {
       const eaten = await eatBestFood(bot);
-      if (eaten) this.logger.info({ eaten, food: bot.food }, 'reflex: ate');
+      if (eaten) {
+        this.lastFoodAlertAt = 0; // next shortage should alert right away
+        this.logger.info({ eaten, food: bot.food }, 'reflex: ate');
+      } else {
+        this.alertNeedsFood();
+      }
     } catch (err) {
       this.logger.warn({ err }, 'reflex: eating failed');
     } finally {
       this.eating = false;
     }
+  }
+
+  /** Tells players in chat that the bot is hungry with nothing edible; rate-limited. */
+  private alertNeedsFood(): void {
+    const { bot } = this;
+    const urgent = bot.food <= EMERGENCY_FOOD;
+    const cooldown = urgent ? URGENT_FOOD_ALERT_COOLDOWN_MS : FOOD_ALERT_COOLDOWN_MS;
+    if (Date.now() - this.lastFoodAlertAt < cooldown) return;
+    this.lastFoodAlertAt = Date.now();
+    bot.chat(
+      urgent
+        ? "I'm starving and out of food — can you give me something to eat?"
+        : "I'm getting hungry and I'm out of food. Can you spare some?",
+    );
   }
 }
