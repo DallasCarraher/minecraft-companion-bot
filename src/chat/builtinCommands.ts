@@ -16,7 +16,7 @@ export function tryHandleBuiltinCommand(
   switch (command.trim().toLowerCase()) {
     case 'stop':
       ctx.cancelActive();
-      return 'Stopped.';
+      return 'Okay, I stopped what I was doing.';
 
     case 'status': {
       const { goal, taskQueue } = ctx.memory.snapshot;
