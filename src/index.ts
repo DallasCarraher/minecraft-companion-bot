@@ -5,6 +5,7 @@ import { ReconnectSupervisor } from './mineflayer/reconnect.js';
 import { SkillRegistry, registerAllSkills } from './skills/index.js';
 import { createLLMProvider, createEscalationProvider } from './llm/providers/factory.js';
 import { MemoryStore } from './memory/store.js';
+import { attachLifecycle } from './mineflayer/lifecycle.js';
 import { ChatRouter } from './chat/router.js';
 import { Reflexes } from './mineflayer/reflexes.js';
 
@@ -53,6 +54,7 @@ async function main() {
     });
     router.attach();
     activeRouter = router;
+    attachLifecycle(bot, { logger, cancelActive: () => router.cancelActive() });
     bot.once('spawn', () => logger.info({ username: bot.username }, 'bot spawned and ready'));
   });
 

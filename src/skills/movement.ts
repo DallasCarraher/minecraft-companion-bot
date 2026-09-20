@@ -2,6 +2,7 @@ import { z } from 'zod';
 import pathfinderPkg from 'mineflayer-pathfinder';
 import type { Bot } from 'mineflayer';
 import { defineSkill } from './types.js';
+import { clearFollowTarget, setFollowTarget } from '../mineflayer/followState.js';
 
 const { goals } = pathfinderPkg;
 
@@ -58,11 +59,17 @@ export const followPlayer = defineSkill({
     const entity = findPlayerEntity(ctx.bot, args.playerName);
     const goal = new goals.GoalFollow(entity, args.maxDistance);
     ctx.bot.pathfinder.setGoal(goal, true);
+    setFollowTarget(ctx.bot, {
+      playerName: args.playerName,
+      maxDistance: args.maxDistance,
+      goal,
+    });
 
     await new Promise<void>((resolve) => {
       ctx.signal.addEventListener(
         'abort',
         () => {
+          clearFollowTarget(ctx.bot);
           ctx.bot.pathfinder.stop();
           resolve();
         },

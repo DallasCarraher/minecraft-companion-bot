@@ -7,6 +7,7 @@ import { runDecisionTick } from '../llm/decisionLoop.js';
 import type { SkillRegistry } from '../skills/registry.js';
 import { buildSystemPrompt } from '../prompts/system.js';
 import { tryHandleBuiltinCommand } from './builtinCommands.js';
+import { stopFollowing } from '../mineflayer/followState.js';
 import { chunkChatMessage } from './format.js';
 import { CHAT_CHUNK_LENGTH } from '../config/constants.js';
 
@@ -55,6 +56,7 @@ export class ChatRouter {
   cancelActive(): void {
     this.activeController?.abort();
     this.deps.onCancel?.();
+    stopFollowing(this.deps.bot);
   }
 
   private async handleChat(username: string, message: string, viaWhisper: boolean): Promise<void> {
