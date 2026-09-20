@@ -5,6 +5,7 @@ import { attackNearest, stopCombat } from './combat.js';
 import { craftItem } from './crafting.js';
 import { buildStructure } from './building.js';
 import { equipArmor, eatFood, dropJunk, chestTransfer } from './inventory.js';
+import { sleepInBed } from './sleeping.js';
 import type { Skill } from './types.js';
 
 export function registerAllSkills(registry: SkillRegistry): void {
@@ -22,6 +23,7 @@ export function registerAllSkills(registry: SkillRegistry): void {
     eatFood,
     dropJunk,
     chestTransfer,
+    sleepInBed,
   ];
 
   for (const skill of skills) {
