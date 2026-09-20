@@ -13,6 +13,8 @@ const CHECK_INTERVAL_MS = 1_000;
 const NEVER_ENGAGE = new Set(['enderman']);
 /** Fine to shoot from range, but melee-ing them is a mistake (they explode). */
 const RANGED_ONLY = new Set(['creeper']);
+/** Switch targets only when another hostile is at least this much closer (avoids thrashing). */
+const RETARGET_MARGIN = 1.5;
 const BOW_MIN_RANGE = 6;
 const BOW_MAX_RANGE = 28;
 const BOW_CHARGE_MS = 1_100;
@@ -138,37 +140,64 @@ export class Reflexes {
     return findBow(items) !== null && hasArrows(items);
   }
 
-  private async fight(target: Entity, id: number): Promise<void> {
+  private async fight(first: Entity, id: number): Promise<void> {
     const { bot } = this;
     const deadline = Date.now() + FIGHT_TIMEOUT_MS;
-    const stillOn = () =>
-      this.fightId === id &&
-      Date.now() < deadline &&
-      bot.entities[target.id] === target &&
-      !this.ownerFled(target, LEASH_DISTANCE) &&
-      bot.health !== undefined &&
-      bot.health > 0;
+    const running = () =>
+      this.fightId === id && Date.now() < deadline && bot.health !== undefined && bot.health > 0;
+    const targetOn = (t: Entity) =>
+      running() && bot.entities[t.id] === t && !this.ownerFled(t, LEASH_DISTANCE);
+    let target = first;
     try {
       bot.pathfinder.stop();
-      while (stillOn()) {
-        const distance = target.position.distanceTo(bot.entity.position);
+      while (running()) {
+        await sleep(50); // never spin, whatever the branches below decide
+        if (bot.entities[target.id] !== target) {
+          // Target died or left: carry on with whatever else is threatening us.
+          const next = this.findThreat(bot.entity, DEFEND_RADIUS);
+          if (!next) return;
+          target = next;
+          continue;
+        }
+        if (this.ownerFled(target, LEASH_DISTANCE)) return;
+        target = this.closerThreat(target) ?? target;
+        const current = target;
+        const stillOn = () => targetOn(current);
+        const distance = current.position.distanceTo(bot.entity.position);
         if (this.canShoot() && distance >= BOW_MIN_RANGE && distance <= BOW_MAX_RANGE) {
-          await this.shoot(target, stillOn);
-        } else if (RANGED_ONLY.has(target.name ?? '') || distance > BOW_MAX_RANGE + 4) {
+          await this.shoot(current, stillOn);
+        } else if (RANGED_ONLY.has(current.name ?? '') || distance > BOW_MAX_RANGE + 4) {
           return;
         } else {
-          await this.melee(target, stillOn);
+          await this.melee(current, stillOn);
         }
       }
     } catch (err) {
       this.logger.warn({ err }, 'reflex: fight failed');
     } finally {
       await bot.pvp.stop();
-      bot.deactivateItem();
+      // Only release an item we're actually using (a drawn bow) — never spuriously.
+      if (bot.usingHeldItem) bot.deactivateItem();
     }
   }
 
-  /** Melee until the target dies, or (if we can shoot) it backs off out of melee range. */
+  /** A hostile meaningfully closer than `target` (e.g. a second zombie swarming us), if any. */
+  private closerThreat(target: Entity): Entity | null {
+    const { bot } = this;
+    const targetDistance = target.position.distanceTo(bot.entity.position);
+    const found = bot.nearestEntity(
+      (e) =>
+        e !== target &&
+        e.type === 'hostile' &&
+        !NEVER_ENGAGE.has(e.name ?? '') &&
+        !(RANGED_ONLY.has(e.name ?? '') && !this.canShoot()) &&
+        e.position.distanceTo(bot.entity.position) <= DEFEND_RADIUS &&
+        e.position.distanceTo(bot.entity.position) < targetDistance - RETARGET_MARGIN,
+    );
+    return found ?? null;
+  }
+
+  /** Melee until the target dies, a closer threat shows up, or (if we can shoot) it backs off. */
   private async melee(target: Entity, stillOn: () => boolean): Promise<void> {
     const { bot } = this;
     bot.pvp.attack(target);
@@ -177,6 +206,7 @@ export class Reflexes {
       if (sword && bot.heldItem?.type !== sword.type && !this.eating) {
         await bot.equip(sword, 'hand');
       }
+      if (this.closerThreat(target)) break;
       const distance = target.position.distanceTo(bot.entity.position);
       if (this.canShoot() && distance >= BOW_MIN_RANGE + 2) break;
       await sleep(250);

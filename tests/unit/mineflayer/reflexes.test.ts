@@ -108,8 +108,11 @@ describe('Reflexes', () => {
       activateItem,
       deactivateItem,
       registry: { foodsByName },
+      nearestEntity: (f: (e: { position: { x: number } }) => boolean) =>
+        (Object.values(entities) as { position: { x: number } }[])
+          .filter((e) => f(e))
+          .toSorted((x, y) => Math.abs(x.position.x) - Math.abs(y.position.x))[0] ?? null,
       ...overrides,
-      nearestEntity: (f: (e: unknown) => boolean) => (f(zombie) ? zombie : null),
     });
     const reflexes = new Reflexes(bot, logger);
     reflexes.attach();
@@ -119,7 +122,7 @@ describe('Reflexes', () => {
       delete entities[7];
       pvp.target = null;
     };
-    return { bot, reflexes, pvp, setGoal, equipped, activateItem, hurt, kill };
+    return { bot, reflexes, pvp, setGoal, equipped, activateItem, hurt, kill, entities };
   }
   const mob = (name: string, x: number) => ({
     id: 7,
@@ -134,7 +137,7 @@ describe('Reflexes', () => {
     const zombie = mob('zombie', 3);
     const { reflexes, pvp, equipped, hurt, kill } = setup(zombie);
     hurt();
-    expect(pvp.attack).toHaveBeenCalledWith(zombie);
+    await waitUntil(() => expect(pvp.attack).toHaveBeenCalledWith(zombie));
     await waitUntil(() => expect(equipped).toContain('iron_sword'));
     expect(equipped).not.toContain('iron_axe');
     kill();
@@ -194,7 +197,7 @@ describe('Reflexes', () => {
     const follow = { entity: owner };
     bot.emit('goal_updated' as never, follow as never, true as never);
     hurt();
-    expect(pvp.attack).toHaveBeenCalled();
+    await waitUntil(() => expect(pvp.attack).toHaveBeenCalled());
     owner.position = pos(40); // player flees
     await waitUntil(() => expect(setGoal).toHaveBeenCalledWith(follow, true));
     expect(pvp.target).toBeNull();
@@ -237,6 +240,43 @@ describe('Reflexes', () => {
     bot.emit('health');
     await new Promise((r) => setTimeout(r, 50));
     expect(chat).not.toHaveBeenCalled();
+    reflexes.detach();
+  });
+
+  it('switches to a closer zombie that starts attacking instead of fixating on the first', async () => {
+    const first = mob('zombie', 5);
+    const second = mob('zombie', 2, 8);
+    const { reflexes, pvp, entities, hurt } = setup(first);
+    hurt();
+    await waitUntil(() => expect(pvp.attack).toHaveBeenCalledWith(first));
+    entities[8] = second; // a second zombie closes in
+    await waitUntil(() => expect(pvp.attack).toHaveBeenCalledWith(second));
+    reflexes.cancel();
+    reflexes.detach();
+  });
+
+  it('keeps its current target when the other mob is only slightly closer', async () => {
+    const first = mob('zombie', 4);
+    const { reflexes, pvp, entities, hurt } = setup(first);
+    hurt();
+    entities[8] = mob('zombie', 3.2, 8);
+    await new Promise((r) => setTimeout(r, 600));
+    expect(pvp.attack).toHaveBeenCalledTimes(1);
+    reflexes.cancel();
+    reflexes.detach();
+  });
+
+  it('never releases an item it is not using (no spurious drop)', async () => {
+    const zombie = mob('zombie', 3);
+    const deactivate = vi.fn<() => void>();
+    const { reflexes, kill, hurt } = setup(zombie, undefined, {
+      deactivateItem: deactivate,
+      usingHeldItem: false,
+    });
+    hurt();
+    kill();
+    await new Promise((r) => setTimeout(r, 400));
+    expect(deactivate).not.toHaveBeenCalled();
     reflexes.detach();
   });
 });
