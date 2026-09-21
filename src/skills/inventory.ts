@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { Vec3 } from 'vec3';
 import type { Bot, Chest } from 'mineflayer';
 import { defineSkill } from './types.js';
+import { eatBestFood } from '../mineflayer/eat.js';
 
 export const equipArmor = defineSkill({
   name: 'equipArmor',
@@ -11,6 +12,23 @@ export const equipArmor = defineSkill({
   async run(ctx) {
     await ctx.bot.armorManager.equipAll();
     return { ok: true, message: 'Equipped best available armor.' };
+  },
+});
+
+export const eatFood = defineSkill({
+  name: 'eatFood',
+  description: 'Eat the best food in the inventory to restore hunger.',
+  argsSchema: z.object({}).strict(),
+  timeoutMs: 15_000,
+  async run(ctx) {
+    if (ctx.bot.food >= 20) return { ok: false, message: 'Not hungry — hunger bar is full.' };
+    try {
+      const eaten = await eatBestFood(ctx.bot);
+      if (!eaten) return { ok: false, message: 'I have no edible food.' };
+      return { ok: true, message: `Ate ${eaten}. Food is now ${ctx.bot.food}/20.` };
+    } catch (err) {
+      return { ok: false, message: `Couldn't eat: ${err instanceof Error ? err.message : err}` };
+    }
   },
 });
 

@@ -60,6 +60,7 @@ directly in both dev and production.
 
 - [Architecture](docs/architecture.md) — components, diagrams, and the request/response loop
 - [Model options](docs/model-options.md) — comparison of LLM backends for the decision loop, evaluated for cost and tool-calling reliability
+- [pc-26.3 upstream patches](docs/pc-26.3-upstream-patches.md) — temporary: tracks the yalc-linked local forks this project currently depends on to run against Minecraft 26.3, and the upstream PRs that will make them unnecessary. Delete once those land.
 
 Module boundaries and the tradeoffs behind them (e.g. why the decision loop is provider-agnostic, why crash recovery abandons rather than resumes in-flight skills) are documented as comments at the top of the relevant files in `src/`, not in a separate design doc.
 

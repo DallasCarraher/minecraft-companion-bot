@@ -16,7 +16,7 @@ export function tryHandleBuiltinCommand(
   switch (command.trim().toLowerCase()) {
     case 'stop':
       ctx.cancelActive();
-      return 'Stopped.';
+      return 'Okay, I stopped what I was doing.';
 
     case 'status': {
       const { goal, taskQueue } = ctx.memory.snapshot;
@@ -26,7 +26,11 @@ export function tryHandleBuiltinCommand(
     }
 
     case 'help':
-      return 'Talk to me naturally, e.g. "come here", "chop some wood", or "build a wall". Say "stop" to cancel what I\'m doing.';
+      return (
+        'Talk to me naturally! I can: go to/follow you or flee, collect blocks & equip the best tool, ' +
+        'build structures, craft items, attack/stop fighting, and manage inventory (equip armor, drop junk, ' +
+        'transfer via chest). Say "stop" to cancel, "status" to see what I\'m doing.'
+      );
 
     default:
       return null;

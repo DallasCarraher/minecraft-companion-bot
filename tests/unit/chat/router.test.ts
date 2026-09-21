@@ -22,6 +22,7 @@ beforeEach(async () => {
 });
 
 afterEach(async () => {
+  await memory.flush(); // settle any debounced write before its directory disappears
   await fs.rm(dataDir, { recursive: true, force: true });
 });
 
@@ -30,7 +31,11 @@ function makeRouter(
   provider: LLMProvider = new FakeLLMProvider([]),
 ) {
   const chatLines: string[] = [];
-  const bot = createFakeBot({ chat: (msg: string) => chatLines.push(msg) });
+  const whispers: { username: string; message: string }[] = [];
+  const bot = createFakeBot({
+    chat: (msg: string) => chatLines.push(msg),
+    whisper: (username: string, msg: string) => whispers.push({ username, message: msg }),
+  });
 
   const config = parseConfig({
     botUsername: 'bot@example.com',
@@ -55,7 +60,7 @@ function makeRouter(
   });
   router.attach();
 
-  return { bot, router, chatLines, config };
+  return { bot, router, chatLines, whispers, config };
 }
 
 async function flush() {
@@ -93,7 +98,7 @@ describe('ChatRouter', () => {
     bot.emit('chat', 'Alice', 'TestBot stop');
     await flush();
 
-    expect(chatLines).toEqual(['Stopped.']);
+    expect(chatLines).toEqual(['Okay, I stopped what I was doing.']);
     expect(providerCalls).toBe(0);
   });
 
@@ -152,5 +157,48 @@ describe('ChatRouter', () => {
     resolveFirst(endResponse('Built it!'));
     await flush();
     expect(chatLines).toContain('Built it!');
+  });
+
+  it('treats a whisper as always-triggered and replies over whisper, not public chat', async () => {
+    const provider: LLMProvider = { name: 'fake', createTurn: async () => endResponse('hi!') };
+    const { bot, chatLines, whispers } = makeRouter({}, provider);
+
+    // No mention of the bot's name needed — a whisper is already a direct address.
+    bot.emit('whisper', 'Alice', 'say hi');
+    await flush();
+
+    expect(chatLines).toHaveLength(0);
+    expect(whispers.map((w) => w.message)).toContain('hi!');
+    expect(whispers.every((w) => w.username === 'Alice')).toBe(true);
+  });
+
+  it('does not double-reply when "stop" cancels an in-flight tick', async () => {
+    let resolveFirst!: (response: NormalizedResponse) => void;
+    const provider: LLMProvider = {
+      name: 'fake',
+      createTurn: () =>
+        new Promise((resolve) => {
+          resolveFirst = resolve;
+        }),
+    };
+    const { bot, chatLines } = makeRouter({}, provider);
+
+    bot.emit('chat', 'Alice', 'TestBot follow me');
+    await flush();
+    // The tick is now blocked inside its first LLM call.
+
+    bot.emit('chat', 'Alice', 'TestBot stop');
+    await flush();
+    // "stop" replies immediately and aborts the in-flight controller...
+
+    resolveFirst(endResponse('should be swallowed by the abort check'));
+    await flush();
+    // ...so when the blocked LLM call finally resolves, decisionLoop's next iteration sees
+    // signal.aborted and returns its own "Stopped." — which the router must not also relay.
+
+    expect(chatLines.filter((line) => line === 'Okay, I stopped what I was doing.')).toHaveLength(
+      1,
+    );
+    expect(chatLines).not.toContain('Stopped.');
   });
 });
