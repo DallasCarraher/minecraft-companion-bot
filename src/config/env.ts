@@ -41,6 +41,12 @@ const AppConfigSchema = z
     combatAggressionRadius: z.coerce.number().int().positive().default(8),
     decisionLoopMaxIterations: z.coerce.number().int().positive().default(6),
 
+    dataCollectionEnabled: z
+      .enum(['true', 'false'])
+      .default('false')
+      .transform((value) => value === 'true'),
+    botDataDir: z.string().min(1).default('./.bot-data'),
+
     logLevel: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace']).default('info'),
   })
   .superRefine((value, ctx) => {
@@ -107,6 +113,8 @@ function readEnv(): Record<string, string | undefined> {
     pathfinderMaxDistance: process.env.PATHFINDER_MAX_DISTANCE,
     combatAggressionRadius: process.env.COMBAT_AGGRESSION_RADIUS,
     decisionLoopMaxIterations: process.env.DECISION_LOOP_MAX_ITERATIONS,
+    dataCollectionEnabled: process.env.DATA_COLLECTION_ENABLED,
+    botDataDir: process.env.BOT_DATA_DIR,
     logLevel: process.env.LOG_LEVEL,
   };
 }

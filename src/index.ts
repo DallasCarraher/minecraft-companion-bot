@@ -1,4 +1,5 @@
 import { loadConfig } from './config/env.js';
+import { DataCollector } from './learning/dataCollector.js';
 import { createLogger } from './logger/logger.js';
 import { createBot } from './mineflayer/client.js';
 import { ReconnectSupervisor } from './mineflayer/reconnect.js';
@@ -16,6 +17,8 @@ async function main() {
 
   const provider = createLLMProvider(config);
   const escalationProvider = createEscalationProvider(config);
+
+  const dataCollector = new DataCollector(config.botDataDir, config.dataCollectionEnabled, logger);
 
   const memory = await MemoryStore.loadOrCreate('default', 'data', (message) =>
     logger.warn(message),
@@ -46,6 +49,7 @@ async function main() {
       registry,
       config,
       logger,
+      dataCollector,
     });
     router.attach();
     activeRouter = router;
@@ -56,6 +60,7 @@ async function main() {
     logger.info({ signal }, 'shutting down');
     activeRouter?.cancelActive();
     await memory.flush();
+    await dataCollector.flush();
     supervisor.stop();
     process.exit(0);
   };

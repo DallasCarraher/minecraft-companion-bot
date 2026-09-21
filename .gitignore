@@ -3,6 +3,7 @@ node_modules/
 *.log
 dist/
 data/
+.bot-data/
 .minecraft-auth/
 coverage/
 local-test-server/

@@ -4,6 +4,7 @@ import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import pino from 'pino';
 import { runDecisionTick } from '../../../src/llm/decisionLoop.js';
+import { DataCollector } from '../../../src/learning/dataCollector.js';
 import { SkillRegistry } from '../../../src/skills/registry.js';
 import { registerAllSkills } from '../../../src/skills/index.js';
 import { MemoryStore } from '../../../src/memory/store.js';
@@ -87,6 +88,7 @@ describe('scenario: "chop some oak logs for me" — Haiku 4.5 cost simulation', 
       config,
       registry,
       provider,
+      dataCollector: new DataCollector(dataDir, false, silentLogger),
       triggerMessage: {
         role: 'user',
         username: 'Steve',
@@ -124,6 +126,7 @@ describe('scenario: "chop some oak logs for me" — Haiku 4.5 cost simulation', 
       config,
       registry,
       provider,
+      dataCollector: new DataCollector(dataDir, false, silentLogger),
       triggerMessage: {
         role: 'user',
         username: 'Steve',
@@ -184,6 +187,7 @@ describe('scenario: "chop some oak logs for me" — Haiku 4.5 cost simulation', 
       config,
       registry,
       provider,
+      dataCollector: new DataCollector(dataDir, false, silentLogger),
       triggerMessage: {
         role: 'user',
         username: 'Steve',
