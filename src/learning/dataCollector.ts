@@ -24,6 +24,7 @@ export function buildDecisionTickData(
   executionTimeMs: number,
 ): DecisionTickData {
   return {
+    schemaVersion: 1,
     timestamp: new Date().toISOString(),
     tickId,
     context: {
@@ -49,6 +50,7 @@ export function buildDecisionTickData(
       executionTimeMs,
       data: result.data,
     },
+    goalProgress: null,
   };
 }
 
