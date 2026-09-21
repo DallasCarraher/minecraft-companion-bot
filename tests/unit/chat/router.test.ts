@@ -98,7 +98,7 @@ describe('ChatRouter', () => {
     bot.emit('chat', 'Alice', 'TestBot stop');
     await flush();
 
-    expect(chatLines).toEqual(['Stopped.']);
+    expect(chatLines).toEqual(['Okay, I stopped what I was doing.']);
     expect(providerCalls).toBe(0);
   });
 
@@ -172,7 +172,7 @@ describe('ChatRouter', () => {
     expect(whispers.every((w) => w.username === 'Alice')).toBe(true);
   });
 
-  it('does not double-reply "Stopped." when "stop" cancels an in-flight tick', async () => {
+  it('does not double-reply when "stop" cancels an in-flight tick', async () => {
     let resolveFirst!: (response: NormalizedResponse) => void;
     const provider: LLMProvider = {
       name: 'fake',
@@ -196,6 +196,9 @@ describe('ChatRouter', () => {
     // ...so when the blocked LLM call finally resolves, decisionLoop's next iteration sees
     // signal.aborted and returns its own "Stopped." — which the router must not also relay.
 
-    expect(chatLines.filter((line) => line === 'Stopped.')).toHaveLength(1);
+    expect(chatLines.filter((line) => line === 'Okay, I stopped what I was doing.')).toHaveLength(
+      1,
+    );
+    expect(chatLines).not.toContain('Stopped.');
   });
 });
