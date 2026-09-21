@@ -5,6 +5,13 @@ import { defineSkill } from './types.js';
 
 const { goals } = pathfinderPkg;
 
+/** How long follow may report noPath/timeout before telling the player she can't reach them. */
+export const UNREACHABLE_NOTIFY_MS = 8_000;
+/** While unreachable, re-issue the follow goal this often so a changed world/player position is retried. */
+export const REPLAN_INTERVAL_MS = 5_000;
+
+type PathUpdate = { status?: string };
+
 function findPlayerEntity(bot: Bot, username: string) {
   const player = bot.players[username];
   if (!player?.entity) {
@@ -38,6 +45,16 @@ export const goToPlayer = defineSkill({
     try {
       await ctx.bot.pathfinder.goto(goal);
       return { ok: true, message: `Reached ${args.playerName}.` };
+    } catch (err) {
+      // mineflayer-pathfinder cannot traverse bubble columns / swim upward against water, so
+      // vertical elevators and other unreachable spots surface here as NoPath / Timeout.
+      const name = err instanceof Error ? err.name : '';
+      if (name === 'NoPath' || name === 'Timeout') {
+        const message = `I can't find a path to ${args.playerName} (maybe a bubble-column elevator or a wall). Can you come to me?`;
+        ctx.say(message);
+        return { ok: false, message };
+      }
+      throw err;
     } finally {
       ctx.signal.removeEventListener('abort', onAbort);
     }
@@ -59,10 +76,38 @@ export const followPlayer = defineSkill({
     const goal = new goals.GoalFollow(entity, args.maxDistance);
     ctx.bot.pathfinder.setGoal(goal, true);
 
+    // Pathfinder can't use bubble columns (soul sand elevators) and never digs/places here, so a
+    // player above/behind an obstacle can be permanently unreachable. Instead of silently
+    // wandering, tell the player once and keep retrying periodically.
+    let unreachableSince: number | null = null;
+    let notified = false;
+    const onPathUpdate = (result: PathUpdate) => {
+      if (result.status === 'noPath' || result.status === 'timeout') {
+        unreachableSince ??= Date.now();
+        if (!notified && Date.now() - unreachableSince >= UNREACHABLE_NOTIFY_MS) {
+          notified = true;
+          ctx.say(
+            `I can't find a way to reach you, ${args.playerName}. Can you come down or meet me somewhere I can walk to?`,
+          );
+        }
+      } else if (result.status === 'success') {
+        unreachableSince = null;
+        notified = false;
+      }
+    };
+    const replan = setInterval(() => {
+      if (unreachableSince === null) return;
+      const fresh = ctx.bot.players[args.playerName]?.entity;
+      if (fresh) ctx.bot.pathfinder.setGoal(new goals.GoalFollow(fresh, args.maxDistance), true);
+    }, REPLAN_INTERVAL_MS);
+    ctx.bot.on('path_update', onPathUpdate);
+
     await new Promise<void>((resolve) => {
       ctx.signal.addEventListener(
         'abort',
         () => {
+          clearInterval(replan);
+          ctx.bot.removeListener('path_update', onPathUpdate);
           ctx.bot.pathfinder.stop();
           resolve();
         },

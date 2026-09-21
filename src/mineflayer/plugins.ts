@@ -14,6 +14,20 @@ const { plugin: collectBlockPlugin } = collectBlockPkg;
 const { plugin: pvpPlugin } = pvpPkg;
 const { plugin: toolPlugin } = toolPkg;
 
+/**
+ * Conservative drop handling only: dig/place/parkour stay at pathfinder defaults (unchanged);
+ * dry drops are capped at 3 blocks (fall damage starts above 3, pathfinder default was 4). Drops that land in water are still allowed at any height
+ * (`infiniteLiquidDropdownDistance`), since water negates fall damage. Bubble columns
+ * (soul-sand elevators) are NOT traversable by mineflayer-pathfinder; followPlayer's
+ * unreachable fallback handles that case.
+ */
+export function createMovements(bot: Bot): InstanceType<typeof Movements> {
+  const movements = new Movements(bot);
+  movements.maxDropDown = 3;
+  movements.infiniteLiquidDropdownDistance = true;
+  return movements;
+}
+
 export function loadPlugins(bot: Bot): void {
   bot.loadPlugin(pathfinder);
   bot.loadPlugin(collectBlockPlugin);
@@ -22,6 +36,6 @@ export function loadPlugins(bot: Bot): void {
   bot.loadPlugin(armorManager);
 
   bot.once('spawn', () => {
-    bot.pathfinder.setMovements(new Movements(bot));
+    bot.pathfinder.setMovements(createMovements(bot));
   });
 }
