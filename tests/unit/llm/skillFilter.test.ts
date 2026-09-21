@@ -93,6 +93,7 @@ describe('filterRelevantSkills', () => {
       'collectBlock',
       'equipBestTool',
       'equipArmor',
+      'eatFood',
       'dropJunk',
       'chestTransfer',
     ]) {

@@ -6,6 +6,7 @@ data/
 .minecraft-auth/
 coverage/
 local-test-server/
+local-test-server-26.3/
 .scratch/
 .yalc/
 yalc.lock

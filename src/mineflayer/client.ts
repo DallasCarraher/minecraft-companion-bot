@@ -2,6 +2,7 @@ import mineflayer, { type Bot } from 'mineflayer';
 import type { AppConfig } from '../config/env.js';
 import type { Logger } from '../logger/logger.js';
 import { buildConnectionOptions } from './connectionTarget.js';
+import { attachPacketDebug } from './packetDebug.js';
 import { loadPlugins } from './plugins.js';
 
 /**
@@ -35,6 +36,7 @@ export function createBot(config: AppConfig, logger: Logger): Bot {
 
   bot.on('error', (err) => logger.error({ err }, 'bot error'));
 
+  attachPacketDebug(bot);
   loadPlugins(bot);
 
   return bot;

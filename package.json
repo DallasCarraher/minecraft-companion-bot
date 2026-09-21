@@ -20,7 +20,8 @@
     "@anthropic-ai/sdk": "^0.125.0",
     "dotenv": "^17.4.2",
     "minecraft-data": "file:.yalc/minecraft-data",
-    "mineflayer": "^4.39.0",
+    "minecraft-protocol": "file:.yalc/minecraft-protocol",
+    "mineflayer": "file:.yalc/mineflayer",
     "mineflayer-armor-manager": "^2.0.1",
     "mineflayer-collectblock": "^1.6.0",
     "mineflayer-pathfinder": "^2.4.5",
@@ -28,6 +29,8 @@
     "mineflayer-tool": "^1.2.0",
     "openai": "^7.15.0",
     "pino": "^10.3.1",
+    "prismarine-chunk": "file:.yalc/prismarine-chunk",
+    "prismarine-physics": "file:.yalc/prismarine-physics",
     "vec3": "^0.1.7",
     "zod": "^4.6.4"
   },
@@ -41,7 +44,11 @@
     "vitest": "^5.0.0"
   },
   "overrides": {
-    "minecraft-data": "file:.yalc/minecraft-data"
+    "minecraft-data": "file:.yalc/minecraft-data",
+    "minecraft-protocol": "file:.yalc/minecraft-protocol",
+    "mineflayer": "file:.yalc/mineflayer",
+    "prismarine-chunk": "file:.yalc/prismarine-chunk",
+    "prismarine-physics": "file:.yalc/prismarine-physics"
   },
   "packageManager": "bun@1.4.2"
 }

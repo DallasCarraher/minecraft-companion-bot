@@ -11,6 +11,8 @@ const NEARBY_ENTITY_LIMIT = 10;
 export interface DecisionContext {
   triggerMessage: ChatTurn;
   recentChat: ChatTurn[];
+  health: number | null;
+  food: number | null;
   inventory: { name: string; count: number }[];
   nearbyBlockTypes: string[];
   nearbyEntities: { name: string; distance: number; isHostile: boolean }[];
@@ -67,6 +69,8 @@ export function assembleDecisionContext(
   return {
     triggerMessage,
     recentChat: snapshot.conversation,
+    health: bot.health ?? null,
+    food: bot.food ?? null,
     inventory: [...inventoryByName.entries()].map(([name, count]) => ({ name, count })),
     nearbyBlockTypes,
     nearbyEntities,
@@ -87,6 +91,7 @@ export function contextToMessage(context: DecisionContext): NormalizedMessage {
         .map((turn) => `${turn.username ?? turn.role}: ${turn.text}`)
         .join(' | ') || '(none)'
     }`,
+    `Health: ${context.health ?? '?'}/20, Food: ${context.food ?? '?'}/20`,
     `Inventory: ${context.inventory.map((item) => `${item.name} x${item.count}`).join(', ') || '(empty)'}`,
     `Nearby blocks: ${context.nearbyBlockTypes.join(', ') || '(none)'}`,
     `Nearby entities: ${context.nearbyEntities.map((e) => `${e.name} (${e.distance.toFixed(1)}m)`).join(', ') || '(none)'}`,

@@ -2,6 +2,7 @@ import { z } from 'zod';
 import pathfinderPkg from 'mineflayer-pathfinder';
 import type { Bot } from 'mineflayer';
 import { defineSkill } from './types.js';
+import { clearFollowTarget, setFollowTarget } from '../mineflayer/followState.js';
 
 const { goals } = pathfinderPkg;
 
@@ -75,6 +76,11 @@ export const followPlayer = defineSkill({
     const entity = findPlayerEntity(ctx.bot, args.playerName);
     const goal = new goals.GoalFollow(entity, args.maxDistance);
     ctx.bot.pathfinder.setGoal(goal, true);
+    setFollowTarget(ctx.bot, {
+      playerName: args.playerName,
+      maxDistance: args.maxDistance,
+      goal,
+    });
 
     // Pathfinder can't use bubble columns (soul sand elevators) and never digs/places here, so a
     // player above/behind an obstacle can be permanently unreachable. Instead of silently
@@ -97,8 +103,8 @@ export const followPlayer = defineSkill({
     };
     const replan = setInterval(() => {
       if (unreachableSince === null) return;
-      const fresh = ctx.bot.players[args.playerName]?.entity;
-      if (fresh) ctx.bot.pathfinder.setGoal(new goals.GoalFollow(fresh, args.maxDistance), true);
+      // Re-issue the *same* goal object: lifecycle.ts treats a different goal as "superseded".
+      ctx.bot.pathfinder.setGoal(goal, true);
     }, REPLAN_INTERVAL_MS);
     ctx.bot.on('path_update', onPathUpdate);
 
@@ -108,6 +114,7 @@ export const followPlayer = defineSkill({
         () => {
           clearInterval(replan);
           ctx.bot.removeListener('path_update', onPathUpdate);
+          clearFollowTarget(ctx.bot);
           ctx.bot.pathfinder.stop();
           resolve();
         },
