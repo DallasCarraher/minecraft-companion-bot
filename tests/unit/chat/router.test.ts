@@ -196,7 +196,9 @@ describe('ChatRouter', () => {
     // ...so when the blocked LLM call finally resolves, decisionLoop's next iteration sees
     // signal.aborted and returns its own "Stopped." — which the router must not also relay.
 
-    expect(chatLines.filter((line) => line === 'Okay, I stopped what I was doing.')).toHaveLength(1);
+    expect(chatLines.filter((line) => line === 'Okay, I stopped what I was doing.')).toHaveLength(
+      1,
+    );
     expect(chatLines).not.toContain('Stopped.');
   });
 });
