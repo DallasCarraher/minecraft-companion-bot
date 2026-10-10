@@ -6,7 +6,7 @@ import type { SkillContext } from '../../../src/skills/types.js';
 const bed = { position: { x: 5, y: 64, z: 5 } };
 
 function makeCtx(overrides: Record<string, unknown> = {}) {
-  const say = vi.fn();
+  const say = vi.fn<(message: string) => void>();
   const bot = createFakeBot({
     registry: {
       blocksArray: [
@@ -18,8 +18,11 @@ function makeCtx(overrides: Record<string, unknown> = {}) {
     thunderState: 0,
     isSleeping: false,
     findBlock: () => bed,
-    pathfinder: { goto: vi.fn().mockResolvedValue(undefined), stop: vi.fn() },
-    sleep: vi.fn().mockResolvedValue(undefined),
+    pathfinder: {
+      goto: vi.fn<() => Promise<void>>().mockResolvedValue(undefined),
+      stop: vi.fn<() => void>(),
+    },
+    sleep: vi.fn<() => Promise<void>>().mockResolvedValue(undefined),
     ...overrides,
   });
   const ctx = {
@@ -68,7 +71,9 @@ describe('sleepInBed.run', () => {
     ['the bed is too far away', /close enough/],
     ["it's not night and it's not a thunderstorm", /night/],
   ])('maps sleep refusal "%s" to a clear message', async (reason, pattern) => {
-    const { ctx, say, bot } = makeCtx({ sleep: vi.fn().mockRejectedValue(new Error(reason)) });
+    const { ctx, say, bot } = makeCtx({
+      sleep: vi.fn<() => Promise<void>>().mockRejectedValue(new Error(reason)),
+    });
     const result = await sleepInBed.run(ctx, {});
     expect(result.ok).toBe(false);
     expect(result.message).toMatch(pattern);
@@ -78,7 +83,10 @@ describe('sleepInBed.run', () => {
 
   it('fails when the bed is unreachable', async () => {
     const { ctx, bot } = makeCtx({
-      pathfinder: { goto: vi.fn().mockRejectedValue(new Error('No path')), stop: vi.fn() },
+      pathfinder: {
+        goto: vi.fn<() => Promise<void>>().mockRejectedValue(new Error('No path')),
+        stop: vi.fn<() => void>(),
+      },
     });
     const result = await sleepInBed.run(ctx, {});
     expect(result.ok).toBe(false);

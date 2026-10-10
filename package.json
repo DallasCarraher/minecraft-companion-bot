@@ -14,7 +14,8 @@
     "format:check": "oxfmt --check .",
     "test": "vitest run",
     "test:watch": "vitest",
-    "check-env": "bun scripts/check-env.ts"
+    "check-env": "bun scripts/check-env.ts",
+    "forks": "bun scripts/forks.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.125.0",

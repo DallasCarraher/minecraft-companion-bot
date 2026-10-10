@@ -6,15 +6,18 @@ import type { SkillContext } from '../../../src/skills/types.js';
 function makeCtx(overrides: Record<string, unknown> = {}) {
   const bot = createFakeBot({
     registry: { blocksByName: { oak_log: { id: 17 }, oak_planks: { id: 5 } } },
-    findBlocks: vi.fn().mockReturnValue([]),
+    findBlocks: vi.fn<() => unknown[]>().mockReturnValue([]),
     config: { pathfinderMaxDistance: 32 },
-    collectBlock: { collect: vi.fn().mockResolvedValue(undefined), cancelTask: vi.fn() },
+    collectBlock: {
+      collect: vi.fn<() => Promise<void>>().mockResolvedValue(undefined),
+      cancelTask: vi.fn<() => void>(),
+    },
     ...overrides,
   });
   const ctx = {
     bot,
     config: { pathfinderMaxDistance: 32 },
-    say: vi.fn(),
+    say: vi.fn<(message: string) => void>(),
     signal: new AbortController().signal,
   } as unknown as SkillContext;
   return { ctx, bot };
@@ -50,9 +53,9 @@ describe('collectBlock.run', () => {
 
   it('throws for an unknown block type', async () => {
     const { ctx } = makeCtx();
-    await expect(collectBlock.run(ctx, { blockName: 'not_a_real_block', count: 1 })).rejects.toThrow(
-      /Unknown block type/,
-    );
+    await expect(
+      collectBlock.run(ctx, { blockName: 'not_a_real_block', count: 1 }),
+    ).rejects.toThrow(/Unknown block type/);
   });
 
   it('reports nothing found when no matching raw resource is nearby', async () => {

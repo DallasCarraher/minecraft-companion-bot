@@ -1,0 +1,149 @@
+{
+  "scope": null,
+  "integrationBranch": "squinch",
+  "packages": {
+    "prismarine-physics": {
+      "fork": "DallasCarraher/prismarine-physics",
+      "upstream": "PrismarineJS/prismarine-physics",
+      "checkout": "prismarine-physics",
+      "base": "a5353a9",
+      "pinned": null,
+      "fixes": [
+        {
+          "pick": "7d697da",
+          "pr": 143,
+          "why": "26.2 missing from the liquid-gravity feature list; Physics() throws on spawn (upstream has since fixed 26.2 itself in #138)"
+        },
+        {
+          "pick": "6f9cbf1",
+          "pr": 145,
+          "why": "same for 26.3"
+        }
+      ],
+      "track": "master"
+    },
+    "prismarine-chunk": {
+      "fork": "DallasCarraher/prismarine-chunk",
+      "upstream": "PrismarineJS/prismarine-chunk",
+      "checkout": "prismarine-chunk",
+      "base": "ce60c5f",
+      "pinned": null,
+      "fixes": [
+        {
+          "pick": "e3424f6",
+          "pr": 333,
+          "why": "26.2 chunk implementation mapping"
+        },
+        {
+          "pick": "c3869a7",
+          "pr": 334,
+          "why": "26.3 chunk implementation mapping"
+        },
+        {
+          "pick": "7382b4f",
+          "pr": 334,
+          "why": "26.3 light-section masks are byte arrays, not long arrays; crash loading the first chunk"
+        }
+      ],
+      "track": "master"
+    },
+    "minecraft-protocol": {
+      "fork": "DallasCarraher/node-minecraft-protocol",
+      "upstream": "PrismarineJS/node-minecraft-protocol",
+      "checkout": "node-minecraft-protocol",
+      "base": "0ebdd51",
+      "pinned": null,
+      "fixes": [
+        {
+          "pick": "d46f478",
+          "pr": 1529,
+          "why": "sessionId in the login success packet for 26.2+"
+        },
+        {
+          "pick": "bf1365f",
+          "pr": 1533,
+          "why": "surface errors thrown during client setup instead of dropping them"
+        },
+        {
+          "pick": "5d33bcd",
+          "pr": 1533,
+          "why": "Realm + Microsoft auth race crashes plugin injection (registerChannel is not a function)"
+        },
+        {
+          "pick": "833a08b",
+          "pr": 1538,
+          "why": "26.3 stepped entity-move delta encoding (entityDelta type); PartialReadError flood near other entities"
+        }
+      ],
+      "track": "master"
+    },
+    "mineflayer": {
+      "fork": "DallasCarraher/mineflayer",
+      "upstream": "PrismarineJS/mineflayer",
+      "checkout": "mineflayer",
+      "base": "91204b2a",
+      "pinned": null,
+      "fixes": [
+        {
+          "pick": "206986b4",
+          "pr": 4121,
+          "why": "26.2 in testedVersions"
+        },
+        {
+          "pick": "f03c43c2",
+          "pr": null,
+          "why": "26.3 in testedVersions (no upstream PR yet)"
+        },
+        {
+          "pick": "1c6c63bd",
+          "pr": 4125,
+          "why": "accept_teleportation needs position/rotation on 26.3+"
+        },
+        {
+          "pick": "ae0756b4",
+          "pr": 4128,
+          "why": "never sent serverbound tick_end; kicked ~2s after every spawn (upstream has since shipped its own fix in #4137)"
+        },
+        {
+          "pick": "04e95aa6",
+          "pr": 4144,
+          "why": "entity tracking for the stepped entity-move/position-sync shape"
+        },
+        {
+          "pick": "1e8d9baf",
+          "pr": 4144,
+          "why": "read entityDelta steps from packet.move (field-name fix)"
+        },
+        {
+          "pick": "865e73db",
+          "pr": 4146,
+          "why": "26.3 shifted player-action ids; digging and item release hit the wrong actions"
+        }
+      ],
+      "track": "master"
+    },
+    "minecraft-data": {
+      "fork": "DallasCarraher/node-minecraft-data",
+      "upstream": "PrismarineJS/node-minecraft-data",
+      "checkout": "node-minecraft-data",
+      "base": "d449f3933",
+      "pinned": null,
+      "data": {
+        "fork": "DallasCarraher/minecraft-data",
+        "upstream": "PrismarineJS/minecraft-data",
+        "checkout": "minecraft-data-26.3",
+        "base": "81612cde1",
+        "fixes": [
+          {
+            "branch": "pc-26.3-support",
+            "pr": 1301,
+            "why": "all 26.3 protocol/data fixes (packet ids, light masks, entity delta, advancements, metadata ids, update_light, ...); also carries #1304 (clientTickEndPacket flag)"
+          }
+        ],
+        "track": "master"
+      },
+      "fixes": [],
+      "track": "master"
+    }
+  }
+}

@@ -13,12 +13,12 @@ function makeCtx(overrides: Record<string, unknown> = {}) {
     },
     findBlock: () => null,
     recipesFor: () => [],
-    craft: vi.fn().mockResolvedValue(undefined),
+    craft: vi.fn<() => Promise<void>>().mockResolvedValue(undefined),
     ...overrides,
   });
   const ctx = {
     bot,
-    say: vi.fn(),
+    say: vi.fn<(message: string) => void>(),
     signal: new AbortController().signal,
   } as unknown as SkillContext;
   return { ctx, bot };
