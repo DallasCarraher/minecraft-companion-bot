@@ -3,5 +3,12 @@
   "singleQuote": true,
   "trailingComma": "all",
   "printWidth": 100,
-  "ignorePatterns": ["dist", "data", ".minecraft-auth", "local-test-server", ".yalc", "docs/diagrams"]
+  "ignorePatterns": [
+    "dist",
+    "data",
+    ".minecraft-auth",
+    "local-test-server",
+    ".yalc",
+    "docs/diagrams"
+  ]
 }
