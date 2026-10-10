@@ -85,7 +85,7 @@ export async function runDecisionTick(params: DecisionTickParams): Promise<{ rep
       'decision loop: tool calls requested',
     );
 
-    messages.push({ role: 'assistant', toolCalls: response.toolCalls });
+    messages.push({ role: 'assistant', toolCalls: response.toolCalls, replay: response.replay });
     const toolResults: NormalizedToolResult[] = [];
 
     for (const call of response.toolCalls) {

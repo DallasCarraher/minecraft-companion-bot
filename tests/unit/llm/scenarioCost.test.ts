@@ -12,7 +12,7 @@ import { buildSystemPrompt } from '../../../src/prompts/system.js';
 import { buildToolSpecs } from '../../../src/llm/toolSchema.js';
 import { createFakeBot } from '../../fakes/fakeBot.js';
 import { FakeLLMProvider, endResponse, toolCallResponse } from '../../fakes/fakeLLMProvider.js';
-import { estimateTickCost, estimateTokens, HAIKU_4_5_PRICING } from '../../fakes/costEstimate.js';
+import { estimateTickCost, estimateTokens, HAIKU_5_5_PRICING } from '../../fakes/costEstimate.js';
 
 /**
  * Simulates the "chop some oak logs for me" scenario end-to-end through the real decision loop
@@ -68,7 +68,7 @@ function makeSceneBot() {
   });
 }
 
-describe('scenario: "chop some oak logs for me" — Haiku 4.5 cost simulation', () => {
+describe('scenario: "chop some oak logs for me" — Haiku 5.5 cost simulation', () => {
   it('resolves in exactly 2 LLM calls: pick the skill, then reply', async () => {
     const registry = new SkillRegistry();
     registerAllSkills(registry);
@@ -106,7 +106,7 @@ describe('scenario: "chop some oak logs for me" — Haiku 4.5 cost simulation', 
     expect(toolResult).toMatchObject({ content: 'Collected 5x oak_log.', isError: false });
   });
 
-  it('costs a fraction of a cent on Haiku 4.5, dominated by tool-definition overhead', async () => {
+  it('costs a small fraction of a cent on Haiku 5.5, dominated by tool-definition overhead', async () => {
     const registry = new SkillRegistry();
     registerAllSkills(registry);
 
@@ -138,12 +138,12 @@ describe('scenario: "chop some oak logs for me" — Haiku 4.5 cost simulation', 
     const { perCall, totalInputTokens, totalOutputTokens, totalCost } = estimateTickCost(
       provider.calls,
       responses,
-      HAIKU_4_5_PRICING,
+      HAIKU_5_5_PRICING,
     );
 
     // eslint-disable-next-line no-console -- intentional: surfaces the number when the test runs.
     console.log(
-      `[scenario cost] ${totalInputTokens} in / ${totalOutputTokens} out tokens ≈ $${totalCost.toFixed(4)}`,
+      `[scenario cost] ${totalInputTokens} in / ${totalOutputTokens} out tokens ≈ $${totalCost.toFixed(5)}`,
     );
 
     // Baked-in expectations from the walkthrough. Bounds are wide because this is a char-count
@@ -155,8 +155,8 @@ describe('scenario: "chop some oak logs for me" — Haiku 4.5 cost simulation', 
     expect(totalInputTokens).toBeGreaterThan(2000);
     expect(totalInputTokens).toBeLessThan(4100);
     expect(totalOutputTokens).toBeLessThan(150);
-    expect(totalCost).toBeGreaterThan(0.002);
-    expect(totalCost).toBeLessThan(0.005);
+    expect(totalCost).toBeGreaterThan(0.0002);
+    expect(totalCost).toBeLessThan(0.0005);
 
     // The architectural point this scenario is meant to demonstrate: most of the first call's
     // input tokens are still tool-definition overhead unrelated to this specific task, even after

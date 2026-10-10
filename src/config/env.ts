@@ -17,12 +17,12 @@ const AppConfigSchema = z
 
     llmProvider: z.enum(['anthropic', 'openai', 'openrouter']),
     anthropicApiKey: z.string().optional(),
-    anthropicModelPrimary: z.string().default('claude-haiku-4-5'),
-    anthropicModelEscalation: z.string().default('claude-sonnet-5'),
+    anthropicModelPrimary: z.string().default('claude-haiku-5-5'),
+    anthropicModelEscalation: z.string().default('claude-sonnet-5-5'),
     openaiApiKey: z.string().optional(),
     openaiModelPrimary: z.string().default('gpt-4.1-mini'),
     openrouterApiKey: z.string().optional(),
-    openrouterModelPrimary: z.string().default('anthropic/claude-haiku-4.5'),
+    openrouterModelPrimary: z.string().default('anthropic/claude-haiku-5.5'),
 
     chatTriggerMode: z.enum(['mention', 'prefix', 'all']).default('mention'),
     chatTriggerPrefix: z.string().default('!bot'),

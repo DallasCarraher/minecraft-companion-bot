@@ -8,7 +8,7 @@ Pricing shifts quickly — verify current rates before committing budget.
 
 | Model                                      | Cost tier       | Approx. price ($/1M in / out)      | Tool-calling reliability                                                                  | Latency notes                          |
 | ------------------------------------------ | --------------- | ---------------------------------- | ----------------------------------------------------------------------------------------- | -------------------------------------- |
-| **Claude Haiku 4.5**                       | Cheap           | $1.00 / $5.00                      | Strong — same tool-use API and `strict: true` schema validation as Sonnet/Opus            | Fast, sub-second for short contexts    |
+| **Claude Haiku 5.5**                       | Very cheap      | $0.10 / $0.50 (prompts ≤100k tok)  | Strong — same tool-use API and `strict: true` schema validation as Sonnet/Opus            | Fastest Claude tier; thinks by default |
 | **GPT-4.1-mini**                           | Very cheap      | $0.40 / $1.60 (batch: $0.20/$0.80) | Strong, mature OpenAI function-calling                                                    | Fast                                   |
 | **GPT-5-mini**                             | Very cheap      | $0.25 / $2.00                      | Strong, native structured outputs                                                         | Fast                                   |
 | **Gemini 3.1 Flash-Lite**                  | Very cheap      | $0.25 / $1.50                      | Good; slightly less strict JSON adherence than OpenAI/Anthropic                           | Very fast                              |
@@ -21,7 +21,7 @@ Rough reliability ranking for structured skill-invocation: **Claude Haiku ≈ GP
 
 ## Recommendation
 
-1. **Primary: Claude Haiku 4.5.** Since the bot's main brain already targets Claude, Haiku shares the same SDK, tool schema, and strict validation — zero integration cost to use it for the high-frequency decision loop while reserving Sonnet/Opus for harder planning steps, at roughly 1/5–1/10 the cost.
+1. **Primary: Claude Haiku 5.5.** Since the bot's main brain already targets Claude, Haiku shares the same SDK, tool schema, and strict validation — zero integration cost to use it for the high-frequency decision loop while reserving Sonnet/Opus for harder planning steps, at roughly 1/5–1/10 the cost.
 2. **Latency-sensitive alternative: GPT-4.1-mini or Groq-hosted Llama 3.3 70B.** If sub-second responsiveness matters more than staying single-vendor, Groq's ~0.9s time-to-first-token is the fastest option here, at the cost of needing a JSON-repair/retry wrapper around occasional malformed tool calls.
 
 ## Existing backend support

@@ -38,8 +38,13 @@ export interface ModelPricing {
   outputPerMTok: number;
 }
 
-/** Claude Haiku 4.5 pricing per docs/model-options.md — reverify before relying on it for budgeting. */
-export const HAIKU_4_5_PRICING: ModelPricing = { inputPerMTok: 1.0, outputPerMTok: 5.0 };
+/**
+ * Claude Haiku 5.5 pricing per docs/model-options.md (the ≤100k-token-prompt tier, which every
+ * decision tick is far inside) — reverify before relying on it for budgeting. The estimate built
+ * on it also leaves out thinking tokens, which are billed as output but never appear in
+ * `NormalizedResponse.text`/`toolCalls`.
+ */
+export const HAIKU_5_5_PRICING: ModelPricing = { inputPerMTok: 0.1, outputPerMTok: 0.5 };
 
 export function estimateCost(
   inputTokens: number,
@@ -62,7 +67,7 @@ export interface CallCostBreakdown {
 export function estimateTickCost(
   calls: CapturedCall[],
   responses: NormalizedResponse[],
-  pricing: ModelPricing = HAIKU_4_5_PRICING,
+  pricing: ModelPricing = HAIKU_5_5_PRICING,
 ): {
   perCall: CallCostBreakdown[];
   totalInputTokens: number;
