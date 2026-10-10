@@ -1,14 +1,16 @@
 import { promises as fs } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import pino from 'pino';
+import { z } from 'zod';
 import { ChatRouter } from '../../../src/chat/router.js';
 import { SkillRegistry } from '../../../src/skills/registry.js';
+import type { Skill } from '../../../src/skills/types.js';
 import { MemoryStore } from '../../../src/memory/store.js';
 import { parseConfig } from '../../../src/config/env.js';
 import { createFakeBot } from '../../fakes/fakeBot.js';
-import { FakeLLMProvider, endResponse } from '../../fakes/fakeLLMProvider.js';
+import { FakeLLMProvider, endResponse, toolCallResponse } from '../../fakes/fakeLLMProvider.js';
 import type { LLMProvider, NormalizedResponse } from '../../../src/llm/types.js';
 
 const silentLogger = pino({ level: 'silent' });
@@ -22,15 +24,21 @@ beforeEach(async () => {
 });
 
 afterEach(async () => {
+  await memory.flush(); // settle any debounced write before its directory disappears
   await fs.rm(dataDir, { recursive: true, force: true });
 });
 
 function makeRouter(
   configOverrides: Record<string, string> = {},
   provider: LLMProvider = new FakeLLMProvider([]),
+  extra: { registry?: SkillRegistry; onCancel?: () => void } = {},
 ) {
   const chatLines: string[] = [];
-  const bot = createFakeBot({ chat: (msg: string) => chatLines.push(msg) });
+  const whispers: { username: string; message: string }[] = [];
+  const bot = createFakeBot({
+    chat: (msg: string) => chatLines.push(msg),
+    whisper: (username: string, msg: string) => whispers.push({ username, message: msg }),
+  });
 
   const config = parseConfig({
     botUsername: 'bot@example.com',
@@ -49,13 +57,14 @@ function makeRouter(
     bot,
     memory,
     provider,
-    registry: new SkillRegistry(),
+    registry: extra.registry ?? new SkillRegistry(),
     config,
     logger: silentLogger,
+    onCancel: extra.onCancel,
   });
   router.attach();
 
-  return { bot, router, chatLines, config };
+  return { bot, router, chatLines, whispers, config };
 }
 
 async function flush() {
@@ -93,7 +102,7 @@ describe('ChatRouter', () => {
     bot.emit('chat', 'Alice', 'TestBot stop');
     await flush();
 
-    expect(chatLines).toEqual(['Stopped.']);
+    expect(chatLines).toEqual(['Okay, I stopped what I was doing.']);
     expect(providerCalls).toBe(0);
   });
 
@@ -152,5 +161,77 @@ describe('ChatRouter', () => {
     resolveFirst(endResponse('Built it!'));
     await flush();
     expect(chatLines).toContain('Built it!');
+  });
+
+  it('treats a whisper as always-triggered and replies over whisper, not public chat', async () => {
+    const provider: LLMProvider = { name: 'fake', createTurn: async () => endResponse('hi!') };
+    const { bot, chatLines, whispers } = makeRouter({}, provider);
+
+    // No mention of the bot's name needed — a whisper is already a direct address.
+    bot.emit('whisper', 'Alice', 'say hi');
+    await flush();
+
+    expect(chatLines).toHaveLength(0);
+    expect(whispers.map((w) => w.message)).toContain('hi!');
+    expect(whispers.every((w) => w.username === 'Alice')).toBe(true);
+  });
+
+  it('does not double-reply when "stop" cancels an in-flight tick', async () => {
+    let resolveFirst!: (response: NormalizedResponse) => void;
+    const provider: LLMProvider = {
+      name: 'fake',
+      createTurn: () =>
+        new Promise((resolve) => {
+          resolveFirst = resolve;
+        }),
+    };
+    const { bot, chatLines } = makeRouter({}, provider);
+
+    bot.emit('chat', 'Alice', 'TestBot follow me');
+    await flush();
+    // The tick is now blocked inside its first LLM call.
+
+    bot.emit('chat', 'Alice', 'TestBot stop');
+    await flush();
+    // "stop" replies immediately and aborts the in-flight controller...
+
+    resolveFirst(endResponse('should be swallowed by the abort check'));
+    await flush();
+    // ...so when the blocked LLM call finally resolves, decisionLoop's next iteration sees
+    // signal.aborted and returns its own "Stopped." — which the router must not also relay.
+
+    expect(chatLines.filter((line) => line === 'Okay, I stopped what I was doing.')).toHaveLength(
+      1,
+    );
+    expect(chatLines).not.toContain('Stopped.');
+  });
+
+  it('wires onCancel into ctx.interruptReflexes so a skill can stand down a reflex fight', async () => {
+    const registry = new SkillRegistry();
+    const interruptingSkill: Skill<Record<string, never>> = {
+      name: 'followPlayer',
+      description: 'stands in for the real followPlayer skill',
+      argsSchema: z.object({}).strict(),
+      timeoutMs: 1000,
+      async run(ctx) {
+        ctx.interruptReflexes();
+        return { ok: true, message: 'Following Alice.' };
+      },
+    };
+    registry.register(interruptingSkill as Skill<unknown>);
+    const onCancel = vi.fn<() => void>();
+    const provider = new FakeLLMProvider([
+      toolCallResponse('followPlayer', {}),
+      endResponse('Following you!'),
+    ]);
+    const { bot, chatLines } = makeRouter({}, provider, { registry, onCancel });
+
+    bot.emit('chat', 'Alice', 'TestBot follow me');
+    // A tool-call round trip chains several more microtask hops than a single-reply tick (provider
+    // call -> skill.run -> provider call again), so flush more than the usual once.
+    for (let i = 0; i < 6; i++) await flush();
+
+    expect(onCancel).toHaveBeenCalledTimes(1);
+    expect(chatLines).toContain('Following you!');
   });
 });

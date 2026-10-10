@@ -13,6 +13,13 @@ export interface SkillContext {
   signal: AbortSignal;
   /** Sends an immediate chat line, e.g. an interim "on it" ack, independent of the final reply. */
   say: (message: string) => void;
+  /**
+   * Stands down the autonomous reflex system's in-progress fight/flee, if any. A skill that
+   * represents an explicit "come to me now" intent (followPlayer, goToPlayer) calls this before
+   * setting its own pathfinder goal — otherwise a reflex fight the bot picked on its own keeps
+   * re-asserting its GoalFollow on the target it's chasing and the user's command never sticks.
+   */
+  interruptReflexes: () => void;
 }
 
 export interface SkillResult {

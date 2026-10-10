@@ -28,6 +28,8 @@ export interface DecisionTickParams {
   signal: AbortSignal;
   /** Sends an immediate chat line independent of the final reply (e.g. an "on it" ack). */
   say: (message: string) => void;
+  /** Forwarded to skills as `ctx.interruptReflexes`; standing them down is otherwise router-only. */
+  interruptReflexes?: () => void;
 }
 
 function safeParseJson(raw: string): unknown {
@@ -67,13 +69,23 @@ export async function runDecisionTick(params: DecisionTickParams): Promise<{ rep
         ? params.escalationProvider
         : params.provider;
 
+    logger.debug({ iteration, tier }, 'decision loop: requesting turn');
     const response = await provider.createTurn({ system: systemPrompt, messages, tools });
 
     if (response.stopReason !== 'tool_calls') {
+      logger.debug(
+        { iteration, stopReason: response.stopReason },
+        'decision loop: final reply, no tool calls',
+      );
       return { replyText: response.text ?? 'Done.' };
     }
 
-    messages.push({ role: 'assistant', toolCalls: response.toolCalls });
+    logger.debug(
+      { iteration, toolCalls: response.toolCalls.map((c) => ({ name: c.name, args: c.argsRaw })) },
+      'decision loop: tool calls requested',
+    );
+
+    messages.push({ role: 'assistant', toolCalls: response.toolCalls, replay: response.replay });
     const toolResults: NormalizedToolResult[] = [];
 
     for (const call of response.toolCalls) {
@@ -119,16 +131,42 @@ export async function runDecisionTick(params: DecisionTickParams): Promise<{ rep
       }
       consecutiveRepairFailures = 0;
 
-      const skillCtx: Omit<SkillContext, 'signal'> = { bot, logger, memory, config, say };
+      const skillCtx: Omit<SkillContext, 'signal'> = {
+        bot,
+        logger,
+        memory,
+        config,
+        say,
+        interruptReflexes: params.interruptReflexes ?? (() => {}),
+      };
 
+      logger.debug({ skill: skill.name, args: validated.data }, 'mineflayer: dispatching skill');
+      const startedAt = Date.now();
       try {
         const result = await withTimeout(
           (innerSignal) => skill.run({ ...skillCtx, signal: innerSignal }, validated.data),
           skill.timeoutMs,
           signal,
         );
+        logger.debug(
+          {
+            skill: skill.name,
+            ok: result.ok,
+            durationMs: Date.now() - startedAt,
+            message: result.message,
+          },
+          'mineflayer: skill finished',
+        );
         toolResults.push({ toolCallId: call.id, content: result.message, isError: !result.ok });
       } catch (err) {
+        logger.debug(
+          {
+            skill: skill.name,
+            durationMs: Date.now() - startedAt,
+            err: err instanceof Error ? err.message : String(err),
+          },
+          'mineflayer: skill threw',
+        );
         toolResults.push({
           toolCallId: call.id,
           content: err instanceof Error ? err.message : String(err),

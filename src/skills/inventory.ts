@@ -2,6 +2,8 @@ import { z } from 'zod';
 import { Vec3 } from 'vec3';
 import type { Bot, Chest } from 'mineflayer';
 import { defineSkill } from './types.js';
+import { eatBestFood } from '../mineflayer/eat.js';
+import { bestMelee } from '../mineflayer/weapons.js';
 
 export const equipArmor = defineSkill({
   name: 'equipArmor',
@@ -11,6 +13,60 @@ export const equipArmor = defineSkill({
   async run(ctx) {
     await ctx.bot.armorManager.equipAll();
     return { ok: true, message: 'Equipped best available armor.' };
+  },
+});
+
+export const equipItem = defineSkill({
+  name: 'equipItem',
+  description:
+    'Equip a weapon (sword, axe, bow, shield, etc.) from inventory to the hand or off-hand. ' +
+    'Give the exact item name to equip a specific one; omit it to equip the best available melee weapon.',
+  argsSchema: z
+    .object({
+      itemName: z
+        .string()
+        .min(1)
+        .nullable()
+        .default(null)
+        .describe(
+          'Exact item name, e.g. "iron_sword"; null to equip the best available melee weapon',
+        ),
+      destination: z.enum(['hand', 'off-hand']).default('hand'),
+    })
+    .strict(),
+  timeoutMs: 15_000,
+  async run(ctx, args) {
+    const items = ctx.bot.inventory.items();
+    const item = args.itemName ? items.find((i) => i.name === args.itemName) : bestMelee(items);
+
+    if (!item) {
+      return {
+        ok: false,
+        message: args.itemName
+          ? `I don't have "${args.itemName}" in my inventory.`
+          : 'I have no melee weapon to equip.',
+      };
+    }
+
+    await ctx.bot.equip(item, args.destination);
+    return { ok: true, message: `Equipped ${item.name} to ${args.destination}.` };
+  },
+});
+
+export const eatFood = defineSkill({
+  name: 'eatFood',
+  description: 'Eat the best food in the inventory to restore hunger.',
+  argsSchema: z.object({}).strict(),
+  timeoutMs: 15_000,
+  async run(ctx) {
+    if (ctx.bot.food >= 20) return { ok: false, message: 'Not hungry — hunger bar is full.' };
+    try {
+      const eaten = await eatBestFood(ctx.bot);
+      if (!eaten) return { ok: false, message: 'I have no edible food.' };
+      return { ok: true, message: `Ate ${eaten}. Food is now ${ctx.bot.food}/20.` };
+    } catch (err) {
+      return { ok: false, message: `Couldn't eat: ${err instanceof Error ? err.message : err}` };
+    }
   },
 });
 

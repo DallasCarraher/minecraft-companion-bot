@@ -24,7 +24,7 @@ interactive version with all three (click to zoom into `bot`, switch light/dark)
 
 The diagrams above are structure.
 [`diagrams/data-flow/data-flow.squinch`](diagrams/data-flow/data-flow.squinch) models one decision
-tick as *data*: the numbered hops from chat packet to chat reply. Open
+tick as _data_: the numbered hops from chat packet to chat reply. Open
 [`diagrams/data-flow/data-flow-payloads.html`](diagrams/data-flow/data-flow-payloads.html) to see
 the diagram beside the real payload at every hop — the `ChatTurn`, the world read, the on-disk
 `BotState`, the `DecisionContext`, the flattened prompt, `toolCalls[].argsRaw`, the `SkillResult`,

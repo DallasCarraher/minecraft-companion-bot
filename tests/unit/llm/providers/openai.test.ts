@@ -34,7 +34,7 @@ describe('OpenAIProvider prompt caching (OpenRouter-aware)', () => {
   it('adds an explicit cache_control breakpoint for an Anthropic model routed via OpenRouter', async () => {
     const provider = new OpenAIProvider(
       'sk-test',
-      'anthropic/claude-haiku-4.5',
+      'anthropic/claude-haiku-5.5',
       OPENROUTER_BASE_URL,
       'openrouter',
     );
@@ -61,7 +61,7 @@ describe('OpenAIProvider prompt caching (OpenRouter-aware)', () => {
   });
 
   it('leaves the system prompt as a plain string against the real OpenAI API regardless of model name', async () => {
-    const provider = new OpenAIProvider('sk-test', 'anthropic/claude-haiku-4.5');
+    const provider = new OpenAIProvider('sk-test', 'anthropic/claude-haiku-5.5');
     await provider.createTurn({ system: 'You are a bot.', messages: [], tools });
 
     const requestArg = createMock.mock.calls[0]?.[0];

@@ -12,7 +12,9 @@ import type {
   ToolSpec,
 } from '../types.js';
 
-const MAX_TOKENS = 1024;
+// Thinking is on by default from Claude Haiku 5.5 / Sonnet 5 on, and thinking tokens count toward
+// max_tokens — a cap sized for a bare tool call can now be spent before the tool call is emitted.
+const MAX_TOKENS = 4096;
 
 /**
  * Translates between our normalized shape and Anthropic's Messages API. Does not implement any
@@ -51,7 +53,7 @@ export class AnthropicProvider implements LLMProvider {
       // decisionLoopMaxIterations) and every chat trigger. A breakpoint on the last tool instead
       // would NOT cover system, since system comes after tools in that prefix order.
       system: [{ type: 'text', text: params.system, cache_control: { type: 'ephemeral' } }],
-      messages: toAnthropicMessages(params.messages),
+      messages: toAnthropicMessages(params.messages, this.name),
       tools,
     });
 
@@ -68,12 +70,13 @@ export class AnthropicProvider implements LLMProvider {
       stopReason: response.stop_reason === 'tool_use' ? 'tool_calls' : 'end',
       toolCalls,
       text: text || null,
+      replay: { provider: this.name, content: response.content },
       raw: response,
     };
   }
 }
 
-function toAnthropicMessages(messages: NormalizedMessage[]): MessageParam[] {
+function toAnthropicMessages(messages: NormalizedMessage[], provider: string): MessageParam[] {
   return messages.map((message): MessageParam => {
     if (message.role === 'tool') {
       // Anthropic requires every tool_result for a given turn to be folded into a single `user`
@@ -87,6 +90,14 @@ function toAnthropicMessages(messages: NormalizedMessage[]): MessageParam[] {
         is_error: result.isError,
       }));
       return { role: 'user', content };
+    }
+
+    // Echo our own earlier turn back untouched: its `thinking` blocks are signed and the API
+    // requires them unmodified next to the `tool_use` they led to, or it drops thinking for the
+    // rest of the tool loop. A turn produced by another provider has no such content, so it falls
+    // through to being rebuilt from the normalized tool calls.
+    if (message.role === 'assistant' && message.replay?.provider === provider) {
+      return { role: 'assistant', content: message.replay.content as MessageParam['content'] };
     }
 
     if (message.role === 'assistant' && message.toolCalls?.length) {

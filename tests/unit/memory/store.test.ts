@@ -5,18 +5,27 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { MemoryStore } from '../../../src/memory/store.js';
 
 let dataDir: string;
+const opened: MemoryStore[] = [];
+
+async function load(...args: Parameters<typeof MemoryStore.loadOrCreate>) {
+  const store = await MemoryStore.loadOrCreate(...args);
+  opened.push(store);
+  return store;
+}
 
 beforeEach(async () => {
   dataDir = await fs.mkdtemp(path.join(os.tmpdir(), 'mcb-memory-test-'));
 });
 
 afterEach(async () => {
+  // Settle any debounced writes before their directory disappears.
+  for (const store of opened.splice(0)) await store.flush();
   await fs.rm(dataDir, { recursive: true, force: true });
 });
 
 describe('MemoryStore', () => {
   it('creates a default state when no file exists', async () => {
-    const store = await MemoryStore.loadOrCreate('default', dataDir);
+    const store = await load('default', dataDir);
     expect(store.snapshot).toMatchObject({
       version: 1,
       realmId: 'default',
@@ -26,18 +35,18 @@ describe('MemoryStore', () => {
   });
 
   it('persists updates on flush and reloads them', async () => {
-    const store = await MemoryStore.loadOrCreate('default', dataDir);
+    const store = await load('default', dataDir);
     store.update((draft) => {
       draft.goal = { description: 'chop wood', createdAt: '2026-01-01T00:00:00.000Z' };
     });
     await store.flush();
 
-    const reloaded = await MemoryStore.loadOrCreate('default', dataDir);
+    const reloaded = await load('default', dataDir);
     expect(reloaded.snapshot.goal?.description).toBe('chop wood');
   });
 
   it('caps the conversation window via appendChatTurn', async () => {
-    const store = await MemoryStore.loadOrCreate('default', dataDir);
+    const store = await load('default', dataDir);
     for (let i = 0; i < 50; i++) {
       store.appendChatTurn({ role: 'user', text: `message ${i}`, at: new Date().toISOString() });
     }
@@ -51,16 +60,14 @@ describe('MemoryStore', () => {
     await fs.writeFile(filePath, '{ not valid json', 'utf8');
 
     const warnings: string[] = [];
-    const store = await MemoryStore.loadOrCreate('default', dataDir, (message) =>
-      warnings.push(message),
-    );
+    const store = await load('default', dataDir, (message) => warnings.push(message));
 
     expect(store.snapshot.version).toBe(1);
     expect(warnings.length).toBeGreaterThan(0);
   });
 
   it('ignores a stale .tmp file left over from a previous crash', async () => {
-    const store = await MemoryStore.loadOrCreate('default', dataDir);
+    const store = await load('default', dataDir);
     store.update((draft) => {
       draft.goal = { description: 'real state', createdAt: '2026-01-01T00:00:00.000Z' };
     });
@@ -69,7 +76,7 @@ describe('MemoryStore', () => {
     // Simulate a crash mid-write: a leftover .tmp file with different, incomplete content.
     await fs.writeFile(path.join(dataDir, 'state.default.json.tmp'), '{ "corrupt": true', 'utf8');
 
-    const reloaded = await MemoryStore.loadOrCreate('default', dataDir);
+    const reloaded = await load('default', dataDir);
     expect(reloaded.snapshot.goal?.description).toBe('real state');
   });
 });

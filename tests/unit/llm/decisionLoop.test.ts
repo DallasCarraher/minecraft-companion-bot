@@ -1,7 +1,7 @@
 import { promises as fs } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { z } from 'zod';
 import pino from 'pino';
 import { runDecisionTick } from '../../../src/llm/decisionLoop.js';
@@ -125,6 +125,55 @@ describe('runDecisionTick', () => {
 
     expect(replyText).toMatch(/taking more steps than expected/);
     expect(provider.calls).toHaveLength(3);
+  });
+
+  it('forwards interruptReflexes into the skill context', async () => {
+    const seen: (() => void)[] = [];
+    const captureSkill: Skill<Record<string, never>> = {
+      name: 'captureCtx',
+      description: 'records ctx.interruptReflexes',
+      argsSchema: z.object({}).strict(),
+      timeoutMs: 1000,
+      async run(ctx) {
+        seen.push(ctx.interruptReflexes);
+        ctx.interruptReflexes();
+        return { ok: true, message: 'done' };
+      },
+    };
+    const registry = new SkillRegistry();
+    registry.register(captureSkill as Skill<unknown>);
+    const interruptReflexes = vi.fn<() => void>();
+
+    const provider = new FakeLLMProvider([
+      toolCallResponse('captureCtx', {}),
+      endResponse('Done!'),
+    ]);
+    await runDecisionTick(baseParams({ provider, registry, interruptReflexes }));
+
+    expect(seen).toHaveLength(1);
+    expect(interruptReflexes).toHaveBeenCalledTimes(1);
+  });
+
+  it("defaults interruptReflexes to a no-op when the caller doesn't supply one", async () => {
+    const captureSkill: Skill<Record<string, never>> = {
+      name: 'captureCtx',
+      description: 'calls ctx.interruptReflexes',
+      argsSchema: z.object({}).strict(),
+      timeoutMs: 1000,
+      async run(ctx) {
+        ctx.interruptReflexes();
+        return { ok: true, message: 'done' };
+      },
+    };
+    const registry = new SkillRegistry();
+    registry.register(captureSkill as Skill<unknown>);
+
+    const provider = new FakeLLMProvider([
+      toolCallResponse('captureCtx', {}),
+      endResponse('Done!'),
+    ]);
+    const { replyText } = await runDecisionTick(baseParams({ provider, registry }));
+    expect(replyText).toBe('Done!');
   });
 
   it('returns immediately if the signal is already aborted', async () => {

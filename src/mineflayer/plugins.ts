@@ -4,12 +4,13 @@ import collectBlockPkg from 'mineflayer-collectblock';
 import pvpPkg from 'mineflayer-pvp';
 import toolPkg from 'mineflayer-tool';
 import armorManager from 'mineflayer-armor-manager';
+import { applySafeMovements } from './movementsConfig.js';
 
 // All five plugins below are CommonJS with no named ESM exports. Under `"type": "module"` +
 // `moduleResolution: "NodeNext"` they must be imported as a default import and destructured —
 // a named import (e.g. `import { pathfinder } from 'mineflayer-pathfinder'`) compiles but fails
 // at runtime because there is no such named export in the underlying CJS module.
-const { pathfinder, Movements } = pathfinderPkg;
+const { pathfinder } = pathfinderPkg;
 const { plugin: collectBlockPlugin } = collectBlockPkg;
 const { plugin: pvpPlugin } = pvpPkg;
 const { plugin: toolPlugin } = toolPkg;
@@ -21,7 +22,5 @@ export function loadPlugins(bot: Bot): void {
   bot.loadPlugin(toolPlugin);
   bot.loadPlugin(armorManager);
 
-  bot.once('spawn', () => {
-    bot.pathfinder.setMovements(new Movements(bot));
-  });
+  bot.once('spawn', () => applySafeMovements(bot));
 }

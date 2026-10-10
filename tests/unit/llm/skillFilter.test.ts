@@ -50,18 +50,17 @@ describe('filterRelevantSkills', () => {
     expect(names).not.toContain('fleeFrom');
   });
 
-  it('includes crafting/building skills when there is an active goal', () => {
+  it('includes buildStructure when there is an active goal', () => {
     const context = makeContext({
       goal: { description: 'build a house', createdAt: new Date().toISOString() },
     });
 
     const names = skillNames(filterRelevantSkills(context, registry));
 
-    expect(names).toContain('craftItem');
     expect(names).toContain('buildStructure');
   });
 
-  it('includes crafting/building skills when there is an active task', () => {
+  it('includes buildStructure when there is an active task', () => {
     const context = makeContext({
       activeTask: {
         id: '1',
@@ -73,15 +72,21 @@ describe('filterRelevantSkills', () => {
 
     const names = skillNames(filterRelevantSkills(context, registry));
 
-    expect(names).toContain('craftItem');
     expect(names).toContain('buildStructure');
   });
 
-  it('excludes crafting/building skills when there is no goal or active task', () => {
+  it('excludes buildStructure when there is no goal or active task', () => {
     const names = skillNames(filterRelevantSkills(makeContext(), registry));
 
-    expect(names).not.toContain('craftItem');
     expect(names).not.toContain('buildStructure');
+  });
+
+  it('always includes craftItem, even with no goal or active task', () => {
+    // A plain chat request like "can you craft a bow?" never creates a goal/task, so craftItem
+    // must stay available or the model has no way to actually attempt it.
+    const names = skillNames(filterRelevantSkills(makeContext(), registry));
+
+    expect(names).toContain('craftItem');
   });
 
   it('always includes movement, gathering, and inventory skills regardless of context', () => {
@@ -93,6 +98,7 @@ describe('filterRelevantSkills', () => {
       'collectBlock',
       'equipBestTool',
       'equipArmor',
+      'eatFood',
       'dropJunk',
       'chestTransfer',
     ]) {

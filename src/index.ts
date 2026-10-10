@@ -5,11 +5,14 @@ import { ReconnectSupervisor } from './mineflayer/reconnect.js';
 import { SkillRegistry, registerAllSkills } from './skills/index.js';
 import { createLLMProvider, createEscalationProvider } from './llm/providers/factory.js';
 import { MemoryStore } from './memory/store.js';
+import { attachLifecycle } from './mineflayer/lifecycle.js';
 import { ChatRouter } from './chat/router.js';
+import { Reflexes } from './mineflayer/reflexes.js';
 
 async function main() {
   const config = loadConfig();
   const logger = createLogger(config);
+  logger.info({ pid: process.pid, logLevel: config.logLevel }, '=== bot run starting ===');
 
   const registry = new SkillRegistry();
   registerAllSkills(registry);
@@ -38,6 +41,8 @@ async function main() {
   );
 
   supervisor.start((bot) => {
+    const reflexes = new Reflexes(bot, logger);
+    reflexes.attach();
     const router = new ChatRouter({
       bot,
       memory,
@@ -46,9 +51,11 @@ async function main() {
       registry,
       config,
       logger,
+      onCancel: () => reflexes.cancel(),
     });
     router.attach();
     activeRouter = router;
+    attachLifecycle(bot, { logger, cancelActive: () => router.cancelActive() });
     bot.once('spawn', () => logger.info({ username: bot.username }, 'bot spawned and ready'));
   });
 

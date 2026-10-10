@@ -30,7 +30,7 @@ describe('AnthropicProvider prompt caching', () => {
       usage: { cache_read_input_tokens: 0, cache_creation_input_tokens: 500 },
     });
 
-    const provider = new AnthropicProvider('sk-test', 'claude-haiku-4-5');
+    const provider = new AnthropicProvider('sk-test', 'claude-haiku-5-5');
     await provider.createTurn({ system: 'You are a bot.', messages: [], tools });
 
     const requestArg = createMock.mock.calls[0]?.[0];
@@ -51,11 +51,63 @@ describe('AnthropicProvider prompt caching', () => {
       usage: { cache_read_input_tokens: 1800, cache_creation_input_tokens: 0 },
     });
 
-    const provider = new AnthropicProvider('sk-test', 'claude-haiku-4-5');
+    const provider = new AnthropicProvider('sk-test', 'claude-haiku-5-5');
     const response = await provider.createTurn({ system: 'You are a bot.', messages: [], tools });
 
     expect((response.raw as { usage: { cache_read_input_tokens: number } }).usage).toMatchObject({
       cache_read_input_tokens: 1800,
     });
+  });
+});
+
+describe('AnthropicProvider thinking round-trip', () => {
+  beforeEach(() => {
+    createMock.mockReset();
+  });
+
+  it('echoes its own assistant turn back verbatim, thinking blocks included', async () => {
+    const content = [
+      { type: 'thinking', thinking: '', signature: 'sig-abc' },
+      { type: 'tool_use', id: 'tu_1', name: 'toolA', input: {} },
+    ];
+    createMock.mockResolvedValue({ stop_reason: 'tool_use', content, usage: {} });
+
+    const provider = new AnthropicProvider('sk-test', 'claude-haiku-5-5');
+    const first = await provider.createTurn({ system: 's', messages: [], tools });
+    expect(first.toolCalls).toEqual([{ id: 'tu_1', name: 'toolA', argsRaw: '{}' }]);
+
+    await provider.createTurn({
+      system: 's',
+      messages: [
+        { role: 'assistant', toolCalls: first.toolCalls, replay: first.replay },
+        { role: 'tool', toolResults: [{ toolCallId: 'tu_1', content: 'ok' }] },
+      ],
+      tools,
+    });
+
+    const requestArg = createMock.mock.calls[1]?.[0] as { messages: { content: unknown }[] };
+    expect(requestArg.messages[0]?.content).toEqual(content);
+  });
+
+  it('rebuilds from normalized tool calls when the turn came from another provider', async () => {
+    createMock.mockResolvedValue({ stop_reason: 'end', content: [], usage: {} });
+
+    const provider = new AnthropicProvider('sk-test', 'claude-haiku-5-5');
+    await provider.createTurn({
+      system: 's',
+      messages: [
+        {
+          role: 'assistant',
+          toolCalls: [{ id: 'call_1', name: 'toolA', argsRaw: '{}' }],
+          replay: { provider: 'openai', content: { tool_calls: [] } },
+        },
+      ],
+      tools,
+    });
+
+    const requestArg = createMock.mock.calls[0]?.[0] as { messages: { content: unknown }[] };
+    expect(requestArg.messages[0]?.content).toEqual([
+      { type: 'tool_use', id: 'call_1', name: 'toolA', input: {} },
+    ]);
   });
 });
