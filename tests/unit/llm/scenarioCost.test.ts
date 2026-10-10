@@ -150,10 +150,10 @@ describe('scenario: "chop some oak logs for me" — Haiku 4.5 cost simulation', 
     // heuristic, not the real tokenizer — the point is to catch order-of-magnitude regressions
     // (e.g. a much larger tool set, or an unexpected extra turn), not to nail an exact figure.
     // No hostiles and no active goal/task in this scenario, so `filterRelevantSkills` drops the
-    // 3 combat skills and 2 goal-gated skills, leaving 7 of the 12 registered skills' schemas on
+    // 3 combat skills and 2 goal-gated skills, leaving 8 of the 13 registered skills' schemas on
     // the wire — lower than the pre-filtering baseline.
     expect(totalInputTokens).toBeGreaterThan(2000);
-    expect(totalInputTokens).toBeLessThan(3200);
+    expect(totalInputTokens).toBeLessThan(4100);
     expect(totalOutputTokens).toBeLessThan(150);
     expect(totalCost).toBeGreaterThan(0.002);
     expect(totalCost).toBeLessThan(0.005);
@@ -196,14 +196,15 @@ describe('scenario: "chop some oak logs for me" — Haiku 4.5 cost simulation', 
     });
 
     // No hostiles nearby and no active goal/task, so combat (attackNearest, stopCombat, fleeFrom)
-    // and goal-gated (craftItem, buildStructure) skills are filtered out of every call's tools.
+    // and goal-gated (buildStructure) skills are filtered out of every call's tools. craftItem
+    // stays available even without a goal/task, since ad-hoc chat crafting requests never create one.
     const sentToolNames = provider.calls[0]?.tools.map((tool) => tool.name) ?? [];
-    expect(sentToolNames.length).toBe(registry.list().length - 5); // 3 combat + 2 goal-gated
+    expect(sentToolNames.length).toBe(registry.list().length - 4); // 3 combat + 1 goal-gated
     expect(sentToolNames).not.toContain('attackNearest');
     expect(sentToolNames).not.toContain('stopCombat');
     expect(sentToolNames).not.toContain('fleeFrom');
-    expect(sentToolNames).not.toContain('craftItem');
     expect(sentToolNames).not.toContain('buildStructure');
+    expect(sentToolNames).toContain('craftItem');
 
     const fullRegistryToolTokens = estimateTokens(JSON.stringify(buildToolSpecs(registry.list())));
     const filteredToolTokens = estimateTokens(JSON.stringify(provider.calls[0]?.tools));

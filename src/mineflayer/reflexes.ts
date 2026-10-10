@@ -1,7 +1,11 @@
 import type { Bot } from 'mineflayer';
+import pathfinderPkg from 'mineflayer-pathfinder';
+import { Vec3 } from 'vec3';
 import type { Logger } from '../logger/logger.js';
 import { eatBestFood } from './eat.js';
-import { bestMelee, findBow, hasArrows } from './weapons.js';
+import { bestMelee, findBow, findShield, hasArrows } from './weapons.js';
+
+const { goals } = pathfinderPkg;
 
 const EAT_BELOW_FOOD = 14;
 const EMERGENCY_FOOD = 6;
@@ -13,6 +17,8 @@ const CHECK_INTERVAL_MS = 1_000;
 const NEVER_ENGAGE = new Set(['enderman']);
 /** Fine to shoot from range, but melee-ing them is a mistake (they explode). */
 const RANGED_ONLY = new Set(['creeper']);
+/** How far away counts as "safe" when backing off from a threat we won't fight. */
+const FLEE_DISTANCE = 10;
 /** Switch targets only when another hostile is at least this much closer (avoids thrashing). */
 const RETARGET_MARGIN = 1.5;
 const BOW_MIN_RANGE = 6;
@@ -20,10 +26,12 @@ const BOW_MAX_RANGE = 28;
 const BOW_CHARGE_MS = 1_100;
 /**
  * While following a player, drop a fight and run back once they're this far from the bot and the
- * enemy; only start fighting again once they're back inside the (smaller) resume distance.
+ * enemy; only start fighting again once they're back inside the (smaller) resume distance. Kept
+ * tight so a reflex fight doesn't drag the bot far off a "follow me" course chasing something that
+ * isn't actually a threat to the player yet — it snaps back to following quickly instead.
  */
-const LEASH_DISTANCE = 14;
-const LEASH_RESUME_DISTANCE = 10;
+const LEASH_DISTANCE = 8;
+const LEASH_RESUME_DISTANCE = 5;
 const FIGHT_TIMEOUT_MS = 90_000;
 const ARROW_SPEED = 2.7; // blocks/tick, average after drag
 const sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
@@ -43,6 +51,7 @@ export class Reflexes {
   private fightId = 0;
   private userGoal: { goal: PathGoal; dynamic: boolean } | null = null;
   private suppressedUntil = 0;
+  private shieldRaised = false;
   private timer: ReturnType<typeof setInterval> | null = null;
 
   constructor(
@@ -82,7 +91,7 @@ export class Reflexes {
   private tick(): void {
     void this.maybeEat();
     if (this.bot.health === undefined) return;
-    const threat = this.findThreat(this.bot.entity, DEFEND_RADIUS);
+    const threat = this.findThreat(this.bot.entity, this.scanRadius());
     if (threat) this.engage(threat);
   }
 
@@ -91,8 +100,17 @@ export class Reflexes {
     const isSelf = hurt === bot.entity;
     const isPlayer = hurt.type === 'player' && hurt.username !== bot.username;
     if (!isSelf && !isPlayer) return;
-    const threat = this.findThreat(hurt, DEFEND_RADIUS + 2);
+    const threat = this.findThreat(hurt, this.scanRadius() + 2);
     if (threat) this.engage(threat);
+  }
+
+  /**
+   * How far out to notice hostiles. With a bow in hand this reaches out to full bow range, so
+   * arrows get loosed at approaching mobs well before they close to melee distance; without one
+   * there's no way to soften them up early, so stick to the tight defend radius.
+   */
+  private scanRadius(): number {
+    return this.canShoot() ? BOW_MAX_RANGE : DEFEND_RADIUS;
   }
 
   private findThreat(around: Entity, radius: number): Entity | null {
@@ -110,10 +128,14 @@ export class Reflexes {
   private engage(target: Entity): void {
     const { bot } = this;
     if (Date.now() < this.suppressedUntil || bot.pvp.target || this.fighting) return;
-    if (RANGED_ONLY.has(target.name ?? '') && !this.canShoot()) return;
     if (this.ownerFled(target, LEASH_RESUME_DISTANCE)) return;
     this.fighting = true;
     const id = ++this.fightId;
+    if (RANGED_ONLY.has(target.name ?? '') && !this.canEngageRanged(target)) {
+      this.logger.info({ target: target.name }, 'reflex: fleeing (no clear shot)');
+      void this.flee(target, id).finally(() => this.onFightEnded(id));
+      return;
+    }
     this.logger.info({ target: target.name }, 'reflex: defending');
     void this.fight(target, id).finally(() => this.onFightEnded(id));
   }
@@ -140,6 +162,55 @@ export class Reflexes {
     return findBow(items) !== null && hasArrows(items);
   }
 
+  /** Whether we could loose an arrow at `target` right now: armed, and an unobstructed view of it. */
+  private canEngageRanged(target: Entity): boolean {
+    return this.canShoot() && this.hasLineOfSight(target);
+  }
+
+  /**
+   * True when nothing solid sits between our eyes and the target's center — otherwise `shoot()`
+   * would draw and fire a bow at a mob it can't actually hit through a wall, floor, or hill.
+   */
+  private hasLineOfSight(target: Entity): boolean {
+    const { bot } = this;
+    // `eyeHeight` is set at runtime by mineflayer's entities plugin but missing from its types.
+    const eyeHeight = (bot.entity as { eyeHeight?: number }).eyeHeight ?? 1.62;
+    const origin = new Vec3(
+      bot.entity.position.x,
+      bot.entity.position.y + eyeHeight,
+      bot.entity.position.z,
+    );
+    const aim = new Vec3(target.position.x, target.position.y + target.height / 2, target.position.z);
+    const delta = aim.minus(origin);
+    const distance = delta.norm();
+    if (distance < 0.001) return true;
+    return bot.world.raycast(origin, delta.normalize(), distance) === null;
+  }
+
+  /** Backs away from a threat we won't fight right now (e.g. a creeper with no clear shot). */
+  private async flee(target: Entity, id: number): Promise<void> {
+    const { bot } = this;
+    const deadline = Date.now() + FIGHT_TIMEOUT_MS;
+    const running = () =>
+      this.fightId === id && Date.now() < deadline && bot.health !== undefined && bot.health > 0;
+    bot.pathfinder.stop();
+    try {
+      while (running() && bot.entities[target.id] === target) {
+        if (this.ownerFled(target, LEASH_DISTANCE)) return;
+        if (target.position.distanceTo(bot.entity.position) >= FLEE_DISTANCE) return;
+        const goal = new goals.GoalInvert(
+          new goals.GoalNear(target.position.x, target.position.y, target.position.z, FLEE_DISTANCE),
+        );
+        bot.pathfinder.setGoal(goal);
+        await sleep(250);
+      }
+    } catch (err) {
+      this.logger.warn({ err }, 'reflex: flee failed');
+    } finally {
+      bot.pathfinder.stop();
+    }
+  }
+
   private async fight(first: Entity, id: number): Promise<void> {
     const { bot } = this;
     const deadline = Date.now() + FIGHT_TIMEOUT_MS;
@@ -164,7 +235,12 @@ export class Reflexes {
         const current = target;
         const stillOn = () => targetOn(current);
         const distance = current.position.distanceTo(bot.entity.position);
-        if (this.canShoot() && distance >= BOW_MIN_RANGE && distance <= BOW_MAX_RANGE) {
+        if (
+          this.canShoot() &&
+          distance >= BOW_MIN_RANGE &&
+          distance <= BOW_MAX_RANGE &&
+          this.hasLineOfSight(current)
+        ) {
           await this.shoot(current, stillOn);
         } else if (RANGED_ONLY.has(current.name ?? '') || distance > BOW_MAX_RANGE + 4) {
           return;
@@ -176,9 +252,30 @@ export class Reflexes {
       this.logger.warn({ err }, 'reflex: fight failed');
     } finally {
       await bot.pvp.stop();
+      this.lowerShield();
       // Only release an item we're actually using (a drawn bow) — never spuriously.
       if (bot.usingHeldItem) bot.deactivateItem();
     }
+  }
+
+  /** Equips a shield to the off-hand, if the bot has one, and raises it to block. */
+  private async raiseShield(): Promise<void> {
+    if (this.shieldRaised) return;
+    const { bot } = this;
+    const shield = findShield(bot.inventory.items());
+    if (!shield) return;
+    if (bot.inventory.slots?.[45]?.type !== shield.type) {
+      await bot.equip(shield, 'off-hand').catch(() => {});
+    }
+    bot.activateItem(true);
+    this.shieldRaised = true;
+  }
+
+  /** Lowers the shield, if raised — needed before drawing a bow, since only one hand can be "in use". */
+  private lowerShield(): void {
+    if (!this.shieldRaised) return;
+    this.bot.deactivateItem();
+    this.shieldRaised = false;
   }
 
   /** A hostile meaningfully closer than `target` (e.g. a second zombie swarming us), if any. */
@@ -190,7 +287,7 @@ export class Reflexes {
         e !== target &&
         e.type === 'hostile' &&
         !NEVER_ENGAGE.has(e.name ?? '') &&
-        !(RANGED_ONLY.has(e.name ?? '') && !this.canShoot()) &&
+        !(RANGED_ONLY.has(e.name ?? '') && !this.canEngageRanged(e)) &&
         e.position.distanceTo(bot.entity.position) <= DEFEND_RADIUS &&
         e.position.distanceTo(bot.entity.position) < targetDistance - RETARGET_MARGIN,
     );
@@ -201,6 +298,8 @@ export class Reflexes {
   private async melee(target: Entity, stillOn: () => boolean): Promise<void> {
     const { bot } = this;
     bot.pvp.attack(target);
+    // A shield in the off-hand doesn't stop a main-hand sword swing, so keep it raised throughout.
+    await this.raiseShield();
     while (stillOn() && bot.pvp.target === target) {
       const sword = bestMelee(bot.inventory.items());
       if (sword && bot.heldItem?.type !== sword.type && !this.eating) {
@@ -219,6 +318,8 @@ export class Reflexes {
     const bow = findBow(bot.inventory.items());
     if (!bow) return;
     await bot.pvp.stop();
+    // Drawing a bow and holding a shield up both occupy the "active item" state — can't do both.
+    this.lowerShield();
     if (bot.heldItem?.type !== bow.type) await bot.equip(bow, 'hand');
     bot.activateItem();
     const chargeUntil = Date.now() + BOW_CHARGE_MS;

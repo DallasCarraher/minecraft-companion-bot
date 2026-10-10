@@ -3,6 +3,7 @@ import { Vec3 } from 'vec3';
 import type { Bot, Chest } from 'mineflayer';
 import { defineSkill } from './types.js';
 import { eatBestFood } from '../mineflayer/eat.js';
+import { bestMelee } from '../mineflayer/weapons.js';
 
 export const equipArmor = defineSkill({
   name: 'equipArmor',
@@ -12,6 +13,41 @@ export const equipArmor = defineSkill({
   async run(ctx) {
     await ctx.bot.armorManager.equipAll();
     return { ok: true, message: 'Equipped best available armor.' };
+  },
+});
+
+export const equipItem = defineSkill({
+  name: 'equipItem',
+  description:
+    'Equip a weapon (sword, axe, bow, shield, etc.) from inventory to the hand or off-hand. ' +
+    'Give the exact item name to equip a specific one; omit it to equip the best available melee weapon.',
+  argsSchema: z
+    .object({
+      itemName: z
+        .string()
+        .min(1)
+        .nullable()
+        .default(null)
+        .describe('Exact item name, e.g. "iron_sword"; null to equip the best available melee weapon'),
+      destination: z.enum(['hand', 'off-hand']).default('hand'),
+    })
+    .strict(),
+  timeoutMs: 15_000,
+  async run(ctx, args) {
+    const items = ctx.bot.inventory.items();
+    const item = args.itemName ? items.find((i) => i.name === args.itemName) : bestMelee(items);
+
+    if (!item) {
+      return {
+        ok: false,
+        message: args.itemName
+          ? `I don't have "${args.itemName}" in my inventory.`
+          : 'I have no melee weapon to equip.',
+      };
+    }
+
+    await ctx.bot.equip(item, args.destination);
+    return { ok: true, message: `Equipped ${item.name} to ${args.destination}.` };
   },
 });
 

@@ -1,4 +1,5 @@
 import type { Bot } from 'mineflayer';
+import { applySafeMovements } from './movementsConfig.js';
 
 export interface FollowTarget {
   playerName: string;
@@ -25,4 +26,7 @@ export function clearFollowTarget(bot: Bot): void {
 export function stopFollowing(bot: Bot): void {
   if (!targets.delete(bot)) return;
   bot.pathfinder?.stop();
+  // followPlayer enables digging for the duration of the follow (see movementsConfig.ts) —
+  // put it back once there's nothing left that needs it.
+  applySafeMovements(bot);
 }

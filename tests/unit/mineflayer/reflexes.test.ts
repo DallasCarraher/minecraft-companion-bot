@@ -144,6 +144,34 @@ describe('Reflexes', () => {
     reflexes.detach();
   });
 
+  it('equips and raises a shield in the off-hand while meleeing', async () => {
+    const zombie = mob('zombie', 3);
+    const { reflexes, pvp, equipped, activateItem, hurt, kill } = setup(
+      zombie,
+      inv('cooked_porkchop', 'iron_sword', 'shield'),
+    );
+    hurt();
+    await waitUntil(() => expect(pvp.attack).toHaveBeenCalledWith(zombie));
+    await waitUntil(() => expect(equipped).toContain('shield'));
+    await waitUntil(() => expect(activateItem).toHaveBeenCalledWith(true));
+    kill();
+    reflexes.detach();
+  });
+
+  it('does not raise the shield while drawing a bow (only one hand can be in use)', async () => {
+    const zombie = withOffset(mob('zombie', 8));
+    const deactivateItem = vi.fn<() => void>();
+    const { reflexes, activateItem, hurt } = setup(
+      zombie,
+      inv('cooked_porkchop', 'bow', 'arrow', 'shield'),
+      { deactivateItem },
+    );
+    hurt();
+    await waitUntil(() => expect(activateItem).toHaveBeenCalledWith());
+    expect(activateItem).not.toHaveBeenCalledWith(true);
+    reflexes.detach();
+  });
+
   it('shoots a bow at range when it has arrows', async () => {
     const zombie = withOffset(mob('zombie', 8));
     const { reflexes, pvp, equipped, activateItem, hurt } = setup(
@@ -158,11 +186,55 @@ describe('Reflexes', () => {
     reflexes.detach();
   });
 
-  it('never melees creepers, and ignores them without a bow', () => {
-    const creeper = mob('creeper', 2);
-    const { reflexes, pvp, hurt } = setup(creeper);
-    hurt();
+  it('notices and shoots a distant zombie on its own, before it ever gets close', async () => {
+    const zombie = withOffset(mob('zombie', 20));
+    const { reflexes, pvp, equipped, activateItem } = setup(
+      zombie,
+      inv('iron_sword', 'bow', 'arrow'),
+    );
+    await waitUntil(() => expect(activateItem).toHaveBeenCalled(), 3_000);
+    expect(equipped).toContain('bow');
     expect(pvp.attack).not.toHaveBeenCalled();
+    reflexes.cancel();
+    reflexes.detach();
+  }, 5_000);
+
+  it('never melees creepers, and flees them instead when it has no bow', async () => {
+    const creeper = mob('creeper', 2);
+    const { reflexes, pvp, setGoal, hurt } = setup(creeper);
+    hurt();
+    await waitUntil(() => expect(setGoal).toHaveBeenCalled());
+    expect(pvp.attack).not.toHaveBeenCalled();
+    reflexes.cancel();
+    reflexes.detach();
+  });
+
+  it('flees a creeper it has a bow for but no clear shot at', async () => {
+    const creeper = withOffset(mob('creeper', 2));
+    const { reflexes, pvp, setGoal, activateItem, hurt } = setup(
+      creeper,
+      inv('iron_sword', 'bow', 'arrow'),
+      { world: { raycast: () => ({ position: { x: 1, y: 64, z: 0 } }) } },
+    );
+    hurt();
+    await waitUntil(() => expect(setGoal).toHaveBeenCalled());
+    expect(pvp.attack).not.toHaveBeenCalled();
+    expect(activateItem).not.toHaveBeenCalled();
+    reflexes.cancel();
+    reflexes.detach();
+  });
+
+  it('melees instead of shooting through a wall when there is no line of sight', async () => {
+    const zombie = withOffset(mob('zombie', 8));
+    const { reflexes, pvp, activateItem, hurt } = setup(
+      zombie,
+      inv('iron_sword', 'bow', 'arrow'),
+      { world: { raycast: () => ({ position: { x: 4, y: 64, z: 0 } }) } },
+    );
+    hurt();
+    await waitUntil(() => expect(pvp.attack).toHaveBeenCalledWith(zombie));
+    expect(activateItem).not.toHaveBeenCalled();
+    reflexes.cancel();
     reflexes.detach();
   });
 
@@ -199,6 +271,22 @@ describe('Reflexes', () => {
     hurt();
     await waitUntil(() => expect(pvp.attack).toHaveBeenCalled());
     owner.position = pos(40); // player flees
+    await waitUntil(() => expect(setGoal).toHaveBeenCalledWith(follow, true));
+    expect(pvp.target).toBeNull();
+    reflexes.detach();
+  });
+
+  it('leash is tight: drops a fight once the player is just 9 blocks off, not only when they flee far', async () => {
+    // Regression guard for the tightened leash — a distance that used to be well within the old
+    // 14-block LEASH_DISTANCE (so the fight would have continued) now exceeds the new 8-block one.
+    const zombie = mob('zombie', 3);
+    const { bot, reflexes, pvp, setGoal, hurt } = setup(zombie);
+    const owner = { type: 'player', username: 'Dall133', position: pos(2) };
+    const follow = { entity: owner };
+    bot.emit('goal_updated' as never, follow as never, true as never);
+    hurt();
+    await waitUntil(() => expect(pvp.attack).toHaveBeenCalled());
+    owner.position = pos(9); // player drifts a modest distance away, not a full flee
     await waitUntil(() => expect(setGoal).toHaveBeenCalledWith(follow, true));
     expect(pvp.target).toBeNull();
     reflexes.detach();

@@ -12,6 +12,7 @@ import { Reflexes } from './mineflayer/reflexes.js';
 async function main() {
   const config = loadConfig();
   const logger = createLogger(config);
+  logger.info({ pid: process.pid, logLevel: config.logLevel }, '=== bot run starting ===');
 
   const registry = new SkillRegistry();
   registerAllSkills(registry);

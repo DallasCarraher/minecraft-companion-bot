@@ -2,7 +2,8 @@ import { z } from 'zod';
 import pathfinderPkg from 'mineflayer-pathfinder';
 import type { Bot } from 'mineflayer';
 import { defineSkill } from './types.js';
-import { clearFollowTarget, setFollowTarget } from '../mineflayer/followState.js';
+import { setFollowTarget } from '../mineflayer/followState.js';
+import { applyDiggingMovements, applySafeMovements } from '../mineflayer/movementsConfig.js';
 
 const { goals } = pathfinderPkg;
 
@@ -31,15 +32,22 @@ export const goToPlayer = defineSkill({
     .strict(),
   timeoutMs: 60_000,
   async run(ctx, args) {
+    // "Go to me" is an explicit priority command — stand down any reflex fight the bot picked on
+    // its own first, or it'll keep re-asserting its own GoalFollow on whatever it was chasing.
+    ctx.interruptReflexes();
     const entity = findPlayerEntity(ctx.bot, args.playerName);
     const goal = new goals.GoalFollow(entity, args.maxDistance);
 
+    // Getting to the player is the whole point of this command — allow digging (e.g. out of a
+    // hole) rather than reporting "no path found", but only for the duration of this one trip.
+    applyDiggingMovements(ctx.bot);
     const onAbort = () => ctx.bot.pathfinder.stop();
     ctx.signal.addEventListener('abort', onAbort, { once: true });
     try {
       await ctx.bot.pathfinder.goto(goal);
       return { ok: true, message: `Reached ${args.playerName}.` };
     } finally {
+      applySafeMovements(ctx.bot);
       ctx.signal.removeEventListener('abort', onAbort);
     }
   },
@@ -54,10 +62,25 @@ export const followPlayer = defineSkill({
       maxDistance: z.number().int().positive().max(256).default(3),
     })
     .strict(),
-  timeoutMs: 600_000,
+  timeoutMs: 15_000,
+  // Fires the pathfinder goal and returns immediately rather than blocking until "stop" —
+  // mineflayer-pathfinder keeps following on its own tick loop, and the previous design (awaiting
+  // the abort signal for up to 10 minutes) held the chat router's single-flight decision tick open
+  // for the whole time the bot was following, so every other command got "Still working on: follow
+  // me" until the user explicitly said "stop". Cancellation is handled independently of this call,
+  // via ChatRouter.cancelActive() and the death handler in lifecycle.ts, both of which call
+  // stopFollowing() directly.
   async run(ctx, args) {
+    // "Follow me" means stop everything and follow, no matter what the bot was doing on its own —
+    // otherwise a reflex fight it picked keeps re-issuing its own GoalFollow on the fight target
+    // and this command's goal gets clobbered a few hundred ms later.
+    ctx.interruptReflexes();
     const entity = findPlayerEntity(ctx.bot, args.playerName);
     const goal = new goals.GoalFollow(entity, args.maxDistance);
+    // Same reasoning as goToPlayer: allow digging out of a stuck spot. Unlike goToPlayer this
+    // isn't reverted when `run()` returns (it returns immediately, before the follow itself is
+    // anywhere near done) — stopFollowing() reverts it once the follow actually ends.
+    applyDiggingMovements(ctx.bot);
     ctx.bot.pathfinder.setGoal(goal, true);
     setFollowTarget(ctx.bot, {
       playerName: args.playerName,
@@ -65,19 +88,7 @@ export const followPlayer = defineSkill({
       goal,
     });
 
-    await new Promise<void>((resolve) => {
-      ctx.signal.addEventListener(
-        'abort',
-        () => {
-          clearFollowTarget(ctx.bot);
-          ctx.bot.pathfinder.stop();
-          resolve();
-        },
-        { once: true },
-      );
-    });
-
-    return { ok: true, message: `Stopped following ${args.playerName}.` };
+    return { ok: true, message: `Following ${args.playerName}.` };
   },
 });
 

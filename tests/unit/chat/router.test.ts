@@ -1,14 +1,16 @@
 import { promises as fs } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import pino from 'pino';
+import { z } from 'zod';
 import { ChatRouter } from '../../../src/chat/router.js';
 import { SkillRegistry } from '../../../src/skills/registry.js';
+import type { Skill } from '../../../src/skills/types.js';
 import { MemoryStore } from '../../../src/memory/store.js';
 import { parseConfig } from '../../../src/config/env.js';
 import { createFakeBot } from '../../fakes/fakeBot.js';
-import { FakeLLMProvider, endResponse } from '../../fakes/fakeLLMProvider.js';
+import { FakeLLMProvider, endResponse, toolCallResponse } from '../../fakes/fakeLLMProvider.js';
 import type { LLMProvider, NormalizedResponse } from '../../../src/llm/types.js';
 
 const silentLogger = pino({ level: 'silent' });
@@ -29,6 +31,7 @@ afterEach(async () => {
 function makeRouter(
   configOverrides: Record<string, string> = {},
   provider: LLMProvider = new FakeLLMProvider([]),
+  extra: { registry?: SkillRegistry; onCancel?: () => void } = {},
 ) {
   const chatLines: string[] = [];
   const whispers: { username: string; message: string }[] = [];
@@ -54,9 +57,10 @@ function makeRouter(
     bot,
     memory,
     provider,
-    registry: new SkillRegistry(),
+    registry: extra.registry ?? new SkillRegistry(),
     config,
     logger: silentLogger,
+    onCancel: extra.onCancel,
   });
   router.attach();
 
@@ -197,5 +201,34 @@ describe('ChatRouter', () => {
     // signal.aborted and returns its own "Stopped." — which the router must not also relay.
 
     expect(chatLines.filter((line) => line === 'Stopped.')).toHaveLength(1);
+  });
+
+  it('wires onCancel into ctx.interruptReflexes so a skill can stand down a reflex fight', async () => {
+    const registry = new SkillRegistry();
+    const interruptingSkill: Skill<Record<string, never>> = {
+      name: 'followPlayer',
+      description: 'stands in for the real followPlayer skill',
+      argsSchema: z.object({}).strict(),
+      timeoutMs: 1000,
+      async run(ctx) {
+        ctx.interruptReflexes();
+        return { ok: true, message: 'Following Alice.' };
+      },
+    };
+    registry.register(interruptingSkill as Skill<unknown>);
+    const onCancel = vi.fn<() => void>();
+    const provider = new FakeLLMProvider([
+      toolCallResponse('followPlayer', {}),
+      endResponse('Following you!'),
+    ]);
+    const { bot, chatLines } = makeRouter({}, provider, { registry, onCancel });
+
+    bot.emit('chat', 'Alice', 'TestBot follow me');
+    // A tool-call round trip chains several more microtask hops than a single-reply tick (provider
+    // call -> skill.run -> provider call again), so flush more than the usual once.
+    for (let i = 0; i < 6; i++) await flush();
+
+    expect(onCancel).toHaveBeenCalledTimes(1);
+    expect(chatLines).toContain('Following you!');
   });
 });

@@ -1,9 +1,29 @@
 import { describe, expect, it } from 'vitest';
-import { equipArmor, dropJunk, chestTransfer } from '../../../src/skills/inventory.js';
+import { equipArmor, equipItem, dropJunk, chestTransfer } from '../../../src/skills/inventory.js';
 
 describe('equipArmor.argsSchema', () => {
   it('accepts an empty object', () => {
     expect(equipArmor.argsSchema.safeParse({}).success).toBe(true);
+  });
+});
+
+describe('equipItem.argsSchema', () => {
+  it('accepts an empty object and defaults itemName to null, destination to hand', () => {
+    const data = equipItem.argsSchema.parse({});
+    expect(data.itemName).toBeNull();
+    expect(data.destination).toBe('hand');
+  });
+
+  it('accepts an explicit itemName and destination', () => {
+    const data = equipItem.argsSchema.parse({ itemName: 'iron_sword', destination: 'off-hand' });
+    expect(data.itemName).toBe('iron_sword');
+    expect(data.destination).toBe('off-hand');
+  });
+
+  it('rejects an invalid destination', () => {
+    expect(
+      equipItem.argsSchema.safeParse({ itemName: 'iron_sword', destination: 'feet' }).success,
+    ).toBe(false);
   });
 });
 

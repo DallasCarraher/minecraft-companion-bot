@@ -19,7 +19,11 @@ export interface ChatRouterDeps {
   registry: SkillRegistry;
   config: AppConfig;
   logger: Logger;
-  /** Invoked whenever active work is cancelled (e.g. "stop"), so background reflexes stand down too. */
+  /**
+   * Stands down the autonomous reflex system's fight/flee. Invoked on "stop", and forwarded into
+   * every decision tick as `ctx.interruptReflexes` so a skill like followPlayer can preempt a
+   * reflex fight the bot picked on its own, rather than the two fighting over the pathfinder goal.
+   */
   onCancel?: () => void;
 }
 
@@ -119,6 +123,7 @@ export class ChatRouter {
         systemPrompt: buildSystemPrompt(config),
         signal: controller.signal,
         say: (chatMessage) => reply(chatMessage),
+        interruptReflexes: () => this.deps.onCancel?.(),
       });
       // An abort (e.g. the "stop" built-in) already sent its own reply and cancelActive()'s
       // caller has moved on — don't also relay decisionLoop's own "Stopped." for this tick.

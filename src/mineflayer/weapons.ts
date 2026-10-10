@@ -37,3 +37,7 @@ export function findBow<T extends NamedItem>(items: T[]): T | null {
 export function hasArrows(items: (NamedItem & { count: number })[]): boolean {
   return items.some((item) => ARROWS.has(item.name) && item.count > 0);
 }
+
+export function findShield<T extends NamedItem>(items: T[]): T | null {
+  return items.find((item) => item.name === 'shield') ?? null;
+}

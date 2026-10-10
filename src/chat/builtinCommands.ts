@@ -28,7 +28,7 @@ export function tryHandleBuiltinCommand(
     case 'help':
       return (
         'Talk to me naturally! I can: go to/follow you or flee, collect blocks & equip the best tool, ' +
-        'build structures, craft items, attack/stop fighting, and manage inventory (equip armor, drop junk, ' +
+        'build structures, craft items, attack/stop fighting, and manage inventory (equip weapons/armor, drop junk, ' +
         'transfer via chest). Say "stop" to cancel, "status" to see what I\'m doing.'
       );
 
