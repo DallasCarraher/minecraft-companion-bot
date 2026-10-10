@@ -1,5 +1,5 @@
 import { spawnSync } from 'node:child_process';
-import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { homedir, tmpdir } from 'node:os';
 import path from 'node:path';
 
@@ -38,6 +38,8 @@ interface Repo {
 
 interface Package extends Repo {
   pinned: string | null;
+  /** Shell steps to run in a fresh clone before publishing (minecraft-data generates its data). */
+  build?: string[];
   /** minecraft-data only: the data repo the npm wrapper embeds as a submodule. */
   data?: Repo;
 }
@@ -202,6 +204,87 @@ function pinDataSubmodule(data: Repo, worktree: string): void {
   }
 }
 
+function sh(command: string, cwd: string): string {
+  const result = spawnSync(command, { cwd, shell: true, encoding: 'utf8' });
+  const out = `${result.stdout ?? ''}${result.stderr ?? ''}`.trim();
+  if (result.status !== 0) throw new Error(`\`${command}\` failed:\n${out}`);
+  return out;
+}
+
+/** Next `<upstream version>-squinch.<n>` not yet on the registry. */
+function nextVersion(npmName: string, upstreamVersion: string): string {
+  const view = run('npm', ['view', npmName, 'versions', '--json']);
+  const published: string[] = view.ok ? [JSON.parse(view.out) as string | string[]].flat() : [];
+  const prefix = `${upstreamVersion}-squinch.`;
+  const taken = published
+    .filter((v) => v.startsWith(prefix))
+    .map((v) => Number(v.slice(prefix.length)));
+  return `${prefix}${Math.max(0, ...taken) + 1}`;
+}
+
+/**
+ * Publishes a fork's integration branch as `<scope>/<package>` and pins the bot to it.
+ *
+ * Always builds from a fresh clone of the fork on GitHub, never from the local checkout, so what
+ * lands on npm is reproducible from public git and can't pick up stray local files. The package is
+ * renamed here rather than in the fork, which keeps the fork's branches identical to what upstream
+ * reviews.
+ */
+function publish(name: string, dryRun: boolean): void {
+  const pkg = manifest.packages[name];
+  if (!pkg) throw new Error(`Unknown package "${name}"`);
+  if (!manifest.scope) throw new Error('Set "scope" in forks/forks.json first');
+  const branch = manifest.integrationBranch;
+  const repoUrl = `https://github.com/${pkg.fork}.git`;
+  const local = git(pkg, 'rev-parse', branch).out;
+  const remote = run('git', ['ls-remote', repoUrl, `refs/heads/${branch}`]).out.split(/\s/)[0];
+  if (local !== remote) {
+    throw new Error(
+      `${name}: ${branch} is not pushed to ${pkg.fork} (local ${local.slice(0, 9)}, remote ${remote?.slice(0, 9) || 'missing'})`,
+    );
+  }
+
+  const dir = mkdtempSync(path.join(tmpdir(), 'squinch-publish-'));
+  try {
+    sh(
+      `git clone -q --depth 1 --branch ${branch} --recurse-submodules --shallow-submodules ${repoUrl} .`,
+      dir,
+    );
+    for (const step of pkg.build ?? []) sh(step, dir);
+
+    const npmName = `${manifest.scope}/${name}`;
+    const upstreamVersion = (
+      JSON.parse(readFileSync(path.join(dir, 'package.json'), 'utf8')) as { version: string }
+    ).version;
+    const version = nextVersion(npmName, upstreamVersion);
+    sh(
+      `npm pkg set name=${npmName} version=${version} repository.type=git repository.url=git+${repoUrl}`,
+      dir,
+    );
+    console.log(sh(`npm publish --access public --tag latest${dryRun ? ' --dry-run' : ''}`, dir));
+    if (dryRun) {
+      console.log(`${name}: dry run only, would publish ${npmName}@${version}`);
+      return;
+    }
+
+    const tag = `${branch}-v${version}`;
+    git(pkg, 'tag', tag, local);
+    git(pkg, 'push', '-q', 'origin', tag);
+
+    pkg.pinned = version;
+    writeFileSync('forks/forks.json', `${JSON.stringify(manifest, null, 2)}\n`);
+    const botPkg = JSON.parse(readFileSync('package.json', 'utf8')) as {
+      dependencies: Record<string, string>;
+      overrides: Record<string, string>;
+    };
+    botPkg.dependencies[name] = botPkg.overrides[name] = `npm:${npmName}@${version}`;
+    writeFileSync('package.json', `${JSON.stringify(botPkg, null, 2)}\n`);
+    console.log(`${name}: published ${npmName}@${version}, tagged ${tag}, pinned in package.json`);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+}
+
 const [command, ...rest] = process.argv.slice(2);
 const target = rest.find((arg) => !arg.startsWith('--'));
 const compareTo = rest.find((arg) => arg.startsWith('--compare='))?.slice('--compare='.length);
@@ -209,9 +292,10 @@ const compareTo = rest.find((arg) => arg.startsWith('--compare='))?.slice('--com
 try {
   if (command === 'status') status(target);
   else if (command === 'rebuild' && target) rebuild(target, compareTo);
+  else if (command === 'publish' && target) publish(target, rest.includes('--dry-run'));
   else {
     console.log(
-      'Usage:\n  bun run forks status [package]\n  bun run forks rebuild <package> [--compare=<ref>]',
+      'Usage:\n  bun run forks status [package]\n  bun run forks rebuild <package> [--compare=<ref>]\n  bun run forks publish <package> [--dry-run]',
     );
     process.exit(command ? 1 : 0);
   }

@@ -1,5 +1,5 @@
 {
-  "scope": null,
+  "scope": "@dallascarraher",
   "integrationBranch": "squinch",
   "packages": {
     "prismarine-physics": {
@@ -143,7 +143,8 @@
         "track": "master"
       },
       "fixes": [],
-      "track": "master"
+      "track": "master",
+      "build": ["npm install --ignore-scripts --no-audit --no-fund", "npm run prepare"]
     }
   }
 }
