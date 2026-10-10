@@ -22,7 +22,11 @@ describe('stopFollowing', () => {
   it("halts pathfinding and reverts followPlayer's digging-enabled movements when a follow was active", () => {
     const stop = vi.fn<() => void>();
     const bot = createFakeBot({
-      pathfinder: { stop, goal: null, setGoal: vi.fn<(goal: unknown, dynamic?: boolean) => void>() },
+      pathfinder: {
+        stop,
+        goal: null,
+        setGoal: vi.fn<(goal: unknown, dynamic?: boolean) => void>(),
+      },
     });
     setFollowTarget(bot, { playerName: 'Steve', maxDistance: 3, goal: {} });
 
@@ -36,7 +40,11 @@ describe('stopFollowing', () => {
   it('does nothing when the bot was not following anyone', () => {
     const stop = vi.fn<() => void>();
     const bot = createFakeBot({
-      pathfinder: { stop, goal: null, setGoal: vi.fn<(goal: unknown, dynamic?: boolean) => void>() },
+      pathfinder: {
+        stop,
+        goal: null,
+        setGoal: vi.fn<(goal: unknown, dynamic?: boolean) => void>(),
+      },
     });
 
     stopFollowing(bot);

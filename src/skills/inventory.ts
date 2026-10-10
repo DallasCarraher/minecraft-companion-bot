@@ -28,7 +28,9 @@ export const equipItem = defineSkill({
         .min(1)
         .nullable()
         .default(null)
-        .describe('Exact item name, e.g. "iron_sword"; null to equip the best available melee weapon'),
+        .describe(
+          'Exact item name, e.g. "iron_sword"; null to equip the best available melee weapon',
+        ),
       destination: z.enum(['hand', 'off-hand']).default('hand'),
     })
     .strict(),

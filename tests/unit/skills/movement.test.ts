@@ -16,7 +16,10 @@ import {
   REPLAN_INTERVAL_MS,
 } from '../../../src/skills/movement.js';
 import { getFollowTarget, stopFollowing } from '../../../src/mineflayer/followState.js';
-import { applyDiggingMovements, applySafeMovements } from '../../../src/mineflayer/movementsConfig.js';
+import {
+  applyDiggingMovements,
+  applySafeMovements,
+} from '../../../src/mineflayer/movementsConfig.js';
 import { createFakeBot } from '../../fakes/fakeBot.js';
 import type { SkillContext } from '../../../src/skills/types.js';
 
@@ -93,9 +96,9 @@ describe('goToPlayer.run', () => {
         goal: null,
       },
     });
-    await expect(
-      goToPlayer.run(ctx, { playerName: 'Steve', maxDistance: 3 }),
-    ).rejects.toThrow("can't get there");
+    await expect(goToPlayer.run(ctx, { playerName: 'Steve', maxDistance: 3 })).rejects.toThrow(
+      "can't get there",
+    );
     expect(applySafeMovements).toHaveBeenCalledWith(bot);
   });
 });

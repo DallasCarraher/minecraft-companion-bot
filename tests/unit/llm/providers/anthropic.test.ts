@@ -89,7 +89,7 @@ describe('AnthropicProvider thinking round-trip', () => {
     expect(requestArg.messages[0]?.content).toEqual(content);
   });
 
-  it("rebuilds from normalized tool calls when the turn came from another provider", async () => {
+  it('rebuilds from normalized tool calls when the turn came from another provider', async () => {
     createMock.mockResolvedValue({ stop_reason: 'end', content: [], usage: {} });
 
     const provider = new AnthropicProvider('sk-test', 'claude-haiku-5-5');

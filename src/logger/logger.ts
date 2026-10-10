@@ -19,7 +19,10 @@ export function createLogger(config: Pick<AppConfig, 'logLevel'>): Logger {
       targets:
         process.env.NODE_ENV === 'production'
           ? [fileTarget]
-          : [{ target: 'pino-pretty', level: config.logLevel, options: { colorize: true } }, fileTarget],
+          : [
+              { target: 'pino-pretty', level: config.logLevel, options: { colorize: true } },
+              fileTarget,
+            ],
     },
   });
 }

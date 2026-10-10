@@ -77,7 +77,11 @@ export const craftItem = defineSkill({
  * turn a dead-end "no recipe" failure into something the model can act on next (go get/craft the
  * missing ingredient) instead of guessing.
  */
-function missingIngredientsFor(bot: Bot, itemId: number, craftingTable: Block | null): string | null {
+function missingIngredientsFor(
+  bot: Bot,
+  itemId: number,
+  craftingTable: Block | null,
+): string | null {
   const candidates = bot.recipesAll(itemId, null, craftingTable);
   if (candidates.length === 0) return null;
 

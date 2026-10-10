@@ -180,7 +180,11 @@ export class Reflexes {
       bot.entity.position.y + eyeHeight,
       bot.entity.position.z,
     );
-    const aim = new Vec3(target.position.x, target.position.y + target.height / 2, target.position.z);
+    const aim = new Vec3(
+      target.position.x,
+      target.position.y + target.height / 2,
+      target.position.z,
+    );
     const delta = aim.minus(origin);
     const distance = delta.norm();
     if (distance < 0.001) return true;
@@ -199,7 +203,12 @@ export class Reflexes {
         if (this.ownerFled(target, LEASH_DISTANCE)) return;
         if (target.position.distanceTo(bot.entity.position) >= FLEE_DISTANCE) return;
         const goal = new goals.GoalInvert(
-          new goals.GoalNear(target.position.x, target.position.y, target.position.z, FLEE_DISTANCE),
+          new goals.GoalNear(
+            target.position.x,
+            target.position.y,
+            target.position.z,
+            FLEE_DISTANCE,
+          ),
         );
         bot.pathfinder.setGoal(goal);
         await sleep(250);

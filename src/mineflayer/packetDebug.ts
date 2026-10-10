@@ -62,7 +62,13 @@ export function attachPacketDebug(bot: Bot): void {
 
   client.on('raw', (buf: Buffer, meta: { name: string; state: string }) => {
     if (captureAll || names.includes(meta.name)) {
-      write({ kind: 'raw', state: meta.state, name: meta.name, len: buf.length, hex: buf.toString('hex') });
+      write({
+        kind: 'raw',
+        state: meta.state,
+        name: meta.name,
+        len: buf.length,
+        hex: buf.toString('hex'),
+      });
     }
   });
 

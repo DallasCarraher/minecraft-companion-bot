@@ -149,7 +149,12 @@ export async function runDecisionTick(params: DecisionTickParams): Promise<{ rep
           signal,
         );
         logger.debug(
-          { skill: skill.name, ok: result.ok, durationMs: Date.now() - startedAt, message: result.message },
+          {
+            skill: skill.name,
+            ok: result.ok,
+            durationMs: Date.now() - startedAt,
+            message: result.message,
+          },
           'mineflayer: skill finished',
         );
         toolResults.push({ toolCallId: call.id, content: result.message, isError: !result.ok });

@@ -226,11 +226,9 @@ describe('Reflexes', () => {
 
   it('melees instead of shooting through a wall when there is no line of sight', async () => {
     const zombie = withOffset(mob('zombie', 8));
-    const { reflexes, pvp, activateItem, hurt } = setup(
-      zombie,
-      inv('iron_sword', 'bow', 'arrow'),
-      { world: { raycast: () => ({ position: { x: 4, y: 64, z: 0 } }) } },
-    );
+    const { reflexes, pvp, activateItem, hurt } = setup(zombie, inv('iron_sword', 'bow', 'arrow'), {
+      world: { raycast: () => ({ position: { x: 4, y: 64, z: 0 } }) },
+    });
     hurt();
     await waitUntil(() => expect(pvp.attack).toHaveBeenCalledWith(zombie));
     expect(activateItem).not.toHaveBeenCalled();
